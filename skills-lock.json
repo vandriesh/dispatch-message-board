@@ -1,11 +1,23 @@
 {
   "version": 1,
   "skills": {
+    "migrate-radix-to-base": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/migrate-radix-to-base/SKILL.md",
+      "computedHash": "e1f2030ee5059be3dff0812ca0e4b995ee9fa3132176f049ebe6c90346a6755e"
+    },
     "react-gradual-architecture": {
       "source": "vandriesh/react-gradual-architecture",
       "sourceType": "github",
       "skillPath": "SKILL.md",
       "computedHash": "6428257a91e4c01a2566b5b47977e6180d09f5b0e051e8462e3ac5b8e0d33901"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "d81caa0f86aabab65b25e302d454f23a3328760386ed9078345584c0d5c8058e"
     }
   }
 }
