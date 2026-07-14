@@ -79,10 +79,13 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
   the Next.js router surface stays thin. Types are defined where the data is born, and
   nothing is split until scanning gets hard or a second consumer appears. Rules in
   [CLAUDE.md](CLAUDE.md#architecture).
-- **shadcn primitives, themed into the design rather than used as-is.** shadcn copies its
-  source into the repo, so restyling to the spec's 3px borders, zero radius, and solid offset
-  shadows is the intended workflow — and Radix underneath gives us the focus management and
-  keyboard navigation that are genuinely hard to hand-roll.
+- **The design system is a package, not a folder** — `@dmb/ui-kit` (`packages/ui-kit`). shadcn
+  primitives rethemed to the design's tokens. A package because the module graph then *enforces*
+  the boundary: the kit can't import from `features/`, so a primitive can't quietly grow domain
+  knowledge. Browse them all at **`/ui-kit`**, which exists to make design drift visible.
+- **Design tokens are measured, not assumed.** Every value came from `getComputedStyle` on the
+  reference design. Its prose claims a uniform "3px border, 6px shadow"; the rendered CSS
+  actually *scales* both with control size, and shadows appear only at ≥42px. The pixels won.
 
 ### A note on Next.js 16
 

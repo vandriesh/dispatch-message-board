@@ -37,11 +37,16 @@ app/                         # Next.js router surface ONLY — thin; wires, does
     messages/route.ts        # GET (cursor-paginated, filtered), POST      — B4
     messages/[id]/route.ts   # PATCH, DELETE (author-only)                 — B4
     session/route.ts         # POST login, DELETE logout
+  ui-kit/page.tsx            # gallery of every primitive, for design comparison
 proxy.ts                     # optimistic auth redirect only (see ADR-003)
 features/                    # the domain: components + services, owned by feature
   messages/                  # feed, composer, inline edit/delete, message service + types
   auth/                      # login, session service
   <feature>/README.md        # per-feature structure + specs
+packages/
+  ui-kit/                    # @dmb/ui-kit — design-system primitives (ADR-010)
+    src/components/          # shadcn atoms, rethemed to the tokens
+    src/index.ts             # the public surface
 ```
 
 Two structural decisions carry most of the weight:
@@ -160,23 +165,38 @@ is reimplementing dedup, retry, and rollback by hand.
 Pairs with **`@tanstack/react-virtual`** for the DOM side (ADR-004). Separate package, separate
 job: Query owns the data, Virtual owns the rows.
 
-### ADR-007 — Styling: Tailwind v4 + tokens lifted from the spec — Accepted
-Tailwind v4 is kept from the scaffold. The reference design (https://y8lj2w.csb.app) states
-its own system, and it is unusually strict — a hard-edged, neo-brutalist look:
+### ADR-007 — Styling: Tailwind v4 + tokens *measured* from the design — Accepted
+Tailwind v4 is kept from the scaffold. Tokens are defined in `app/globals.css` under `@theme`,
+so no component hardcodes `#FFE600` or a pixel offset.
 
-| Token | Value |
-|-------|-------|
-| Border | `3px` solid `#111` |
-| Shadow | `6px 6px 0 #111` — solid offset, no blur |
-| Radius | `0` — everywhere |
-| Accent | `#FFE600` (single accent) |
-| Breakpoints | desktop `1440`, mobile `390` |
+**The tokens were measured with `getComputedStyle`, not read off the design's prose.** That
+distinction turned out to matter. The reference page's own intro paragraph claims a uniform
+*"3px border, 6px/6px shadow"*. The rendered CSS does not do that — border width and shadow
+offset both **scale with the size of the control**:
 
-These go into `@theme` as named tokens, so no component hardcodes `#FFE600` or `6px`. A
-zero-radius, zero-blur system is unforgiving: any stray `rounded` or default `box-shadow`
-reads instantly as a miss, and N1 is explicitly graded.
+| Token | Value | Notes |
+|-------|-------|-------|
+| Ink | `#111111` | borders, shadows, text |
+| Page | `#E4E4DE` | app background |
+| Surface | `#FFFFFF` | cards, inputs |
+| Accent | `#FFE600` | the single accent |
+| Muted text | `#57574F` | timestamps, secondary |
+| Radius | `0` | everywhere, no exceptions |
+| Border | `2px` → `2.5px` → `3px` | grows with control size |
+| Shadow | `2/3/4/5/6px` solid offset, no blur | grows with control size |
+| Type | Space Grotesk (prose), Space Mono (controls) | the scaffold's Geist is replaced |
 
-**How the primitives get this look:** see ADR-009.
+Two rules fell out of the measurements that are easy to "tidy up" into being wrong:
+
+1. **Shadows only appear on controls ≥42px tall.** EDIT, DELETE, and LOG OUT are flat. Giving
+   them a shadow would look more consistent and would not match the design.
+2. **Border width tracks height** — 2px at 34px, 2.5px at 40px, 3px at 42px and up.
+
+Encoded as a `shadow-brutal-{xs,sm,md,lg,xl}` scale plus a `press-brutal` utility (the control
+translates onto its own shadow on `:active`). A zero-radius, zero-blur system is unforgiving:
+one stray `rounded` reads instantly as a miss, and N1 is explicitly graded.
+
+**How the primitives get this look:** see ADR-009 and ADR-010.
 
 ### ADR-009 — shadcn, themed into the brutalist system — Accepted
 Primitives (Button, Input, Select, Popover, Calendar) come from **shadcn**, retheme​d to the
@@ -198,19 +218,49 @@ What we get for free, and what we write:
   minutes of work across the few components we need — but it is the part that's easy to
   underestimate when someone says "just theme it."
 
-**What Radix underneath actually buys** — the accessibility that is genuinely painful to
-hand-roll: focus traps, keyboard navigation in the select, roving focus in the calendar grid,
-`aria-*` wiring on the popover. That is the real argument for shadcn over hand-rolled markup,
-not the styling.
+**What the primitive layer underneath actually buys** — the accessibility that is genuinely
+painful to hand-roll: focus traps, keyboard navigation in the select, roving focus in the
+calendar grid, `aria-*` wiring on the popover. That is the real argument for shadcn over
+hand-rolled markup, not the styling.
 
-**Risks, to check at install time rather than discover later:**
-- Verify `shadcn init` runs cleanly against **Tailwind v4 + Next 16**. v4 moved theming into
-  `@theme` in CSS and dropped `tailwind.config.ts`; shadcn's setup changed to match. Run `init`
-  as the *first* step, before anything is built on top of it.
-- The date-range Calendar (O3) pulls in `react-day-picker` — by far the heaviest thing in the
-  set. If the mobile filter drawer ends up wanting two plain `From`/`To` inputs, the calendar
-  may not earn its weight. Decide once that screen is real; the rest of the shadcn set stands
-  either way.
+**Correction: it is Base UI, not Radix.** An earlier draft of this ADR said Radix. shadcn's
+current default (`style: base-nova`) installs **`@base-ui/react`** — the Radix team's
+successor library — and the CLI ships a `migrate-radix-to-base` skill for projects moving over.
+The practical difference for us: custom triggers use the **`render` prop, not `asChild`**.
+Anything written against Radix's API needs translating.
+
+**Both install-time risks are now resolved:**
+- ✅ `shadcn init` runs cleanly against **Tailwind v4 + Next 16** — it detected both, wrote
+  `@theme`-based tokens, and needed no `tailwind.config.ts`. This was the risk worth retiring
+  first, and it cost nothing.
+- ⚠️ The date-range Calendar (O3) does pull in `react-day-picker` **and `date-fns`** — still by
+  far the heaviest thing in the set, and still the prime `next/dynamic` candidate (Q2). The
+  primitive is installed; whether the *feed* uses it or falls back to two plain `From`/`To`
+  inputs is a decision deferred to when that screen is real.
+
+### ADR-010 — The ui-kit is a workspace package, not a folder — Accepted
+Primitives live in `packages/ui-kit` (an npm workspace, `@dmb/ui-kit`) rather than in a
+`components/ui/` folder inside the app.
+
+**Why a package.** The boundary between "design system" and "domain" is then enforced by the
+**module graph**, not by discipline: `@dmb/ui-kit` has no dependency on `features/`, so a
+primitive *cannot* quietly grow domain knowledge. In a plain folder, nothing stops someone
+importing a `Message` type into `Badge`, and by the time anyone notices, the "design system" is
+just a components folder with extra steps. Making the wrong thing impossible beats documenting
+that it's discouraged.
+
+It also makes the kit independently reviewable — and `/ui-kit`, the gallery route, exists so
+the primitives can be diffed against the reference design in a browser rather than by eye.
+
+**Mechanics.** No build step: the package ships TypeScript source and Next compiles it via
+`transpilePackages: ["@dmb/ui-kit"]`. Path aliases in `tsconfig.json` resolve `@dmb/ui-kit` to
+`src/index.ts`. The package has **its own `components.json`**, so `shadcn add` must be run from
+`packages/ui-kit/` — the CLI detects the workspace and refuses to write from the repo root.
+Tailwind must be told to scan outside `app/`, hence `@source "../packages/ui-kit/src"` in
+`globals.css`; without it, classes used *only* in the package are silently not generated.
+
+**Cost.** A workspace is more setup than a folder, and `npm install` now has to link it. Cheap,
+and paid once.
 
 ### ADR-008 — Feature-modular organization, gradually extracted — Accepted
 Code is organized **by feature, not by file type**, following the project's

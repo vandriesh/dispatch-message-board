@@ -24,3 +24,42 @@ and add it to the local CLAUDE.md under #Architecture
 
 resuming logging
 
+---
+
+I want to create a UI kit package.
+this one will have basic / atoms (Inputs, Buttons, ... etc)
+
+I think it's good idea to add on board shadcn, update the default theme with css design tokens
+
+add the skill
+
+```
+npx skills add shadcn/ui
+```
+
+than check how to add shadcn to nextjs app
+
+than analyze the Browser for which Atomic components we will need - inputs, buttons, checkboces, date  pickers ,etc
+
+all these "primitives" should be created under packages/ui-kit/src/component
+
+make sure it has index.ts exporting all these components and
+a package.json describing this package/feature
+plus, update tsconfig to have alias
+
+the org would be dmb (dispatch-message-board
+
+```ts
+import { Button } from '@dmb/ui-kit';
+```
+
+you can create /ui-kit route to have all the components from the ui-ki exposed/listed to compare it using the browser (size/margin/padding/colors/"brutal" shadow effect/ etc)
+
+---
+
+I think Avatar should need some fixes. compare with the original element.
+
+---
+
+commit using commitlint convention
+
