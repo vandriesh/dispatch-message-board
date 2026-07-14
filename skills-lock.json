@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "react-gradual-architecture": {
+      "source": "vandriesh/react-gradual-architecture",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "6428257a91e4c01a2566b5b47977e6180d09f5b0e051e8462e3ac5b8e0d33901"
+    }
+  }
+}
