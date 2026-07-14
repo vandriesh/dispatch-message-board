@@ -1,26 +1,117 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+/* The ui-kit lives outside app/, so Tailwind must be told to scan it. */
+@source "../packages/ui-kit/src";
+
+/* ---------------------------------------------------------------------------
+ * Design tokens — Dispatch "brutal" system.
+ *
+ * Every value here was measured off the reference design (https://y8lj2w.csb.app)
+ * with getComputedStyle, not read off its prose header. That matters: the spec's
+ * own intro claims a uniform "3px border, 6px/6px shadow", but the rendered CSS
+ * uses a *scale* — borders 2/2.5/3px and shadows 2/3/4/5px, both growing with the
+ * size of the control. The measurements win; see ADR-007.
+ * ------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #111111;
+  --page: #e4e4de;
+  --surface: #ffffff;
+  --accent: #ffe600;
+
+  /* shadcn semantic tokens, remapped onto the system above. */
+  --background: var(--page);
+  --foreground: #000000;
+  --card: var(--surface);
+  --card-foreground: #000000;
+  --popover: var(--surface);
+  --popover-foreground: #000000;
+  --primary: var(--accent);
+  --primary-foreground: #000000;
+  --secondary: var(--surface);
+  --secondary-foreground: #000000;
+  --muted: var(--page);
+  --muted-foreground: #57574f;
+  --accent-foreground: #000000;
+  --destructive: #d92d20;
+  --border: var(--ink);
+  --input: var(--ink);
+  --ring: var(--ink);
+
+  /* Zero radius, everywhere. The single highest-leverage token in this design:
+   * one stray rounded corner reads instantly as a miss. */
+  --radius: 0rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--primary);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-page: var(--page);
+
+  /* Space Grotesk for prose, Space Mono for anything that behaves like a
+   * control or a label — buttons, tags, field labels, timestamps. */
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-space-mono);
+  --font-heading: var(--font-space-grotesk);
+
+  /* Solid offset shadows — no blur, no spread. The scale tracks control size:
+   * xs on 34-36px controls, up to lg on the 56px login button. */
+  --shadow-brutal-xs: 2px 2px 0 0 var(--ink);
+  --shadow-brutal-sm: 3px 3px 0 0 var(--ink);
+  --shadow-brutal-md: 4px 4px 0 0 var(--ink);
+  --shadow-brutal-lg: 5px 5px 0 0 var(--ink);
+  --shadow-brutal-xl: 6px 6px 0 0 var(--ink);
+
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+  --radius-3xl: 0rem;
+  --radius-4xl: 0rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Press affordance: the control moves onto its own shadow. Cheap, and it's what
+ * makes an offset-shadow system feel physical rather than just flat-with-a-drop. */
+@utility press-brutal {
+  transition:
+    transform 80ms ease,
+    box-shadow 80ms ease;
+
+  &:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: none !important;
+  }
 }
