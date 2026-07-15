@@ -4,7 +4,6 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/app/(auth)/session"
 
 import {
-  FeedClient,
   TAGS,
   userFromIdentity,
   withOwnership,
@@ -14,7 +13,7 @@ import {
 import { getMessages, mockLatency } from "@dmb/feed/server"
 
 import { FeedFilterBar } from "./feed-filter-bar"
-import { FeedFilterMobile } from "./feed-filter-mobile"
+import { FeedSection } from "./feed-section"
 
 export const metadata: Metadata = {
   title: "Feed — Dispatch",
@@ -52,16 +51,18 @@ function parseFilters(sp: SearchParams): FeedFilters {
  * the same stamp in the `/api/messages` route. A mock latency runs first so the
  * streaming skeleton (app/feed/loading.tsx) is actually seen (F11, ADR-005). The
  * owner-stamped first page, the filters, and the logged-in user are handed to
- * `FeedClient`, which owns the query cache and the optimistic post/edit/delete.
+ * `FeedSection` → `FeedClient`, which owns the query cache and the optimistic
+ * post/edit/delete.
  *
  * The page is an app shell: `main` is exactly the viewport minus the top bar and
  * never itself scrolls. `FeedClient` lays out its column so the composer (and,
- * below `lg`, the mobile filter passed in as `mobileFilter`) stay pinned at the
- * top, the messages scroll in the space that's left, and LOAD MORE is parked at
- * the bottom. Desktop keeps the two-column layout — the FILTERS rail (296px) at
- * left, the shell at right; below `lg` it is a single column and the rail
- * collapses into the cog panel. `FeedClient` is remounted per filter set so a
- * filter change resets the query cache and optimistic state (ADR-004).
+ * below `lg`, the mobile cog filter) stay pinned at the top, the messages scroll
+ * in the space that's left, and LOAD MORE is parked at the bottom. Desktop keeps
+ * the two-column layout — the FILTERS rail (296px) at left, the shell at right;
+ * below `lg` it is a single column and the rail collapses into the cog panel.
+ * `FeedClient` is remounted per filter set so a filter change resets the query
+ * cache and optimistic state (ADR-004); `FeedSection` holds the mobile filter's
+ * recency/open state above that remount so a pick doesn't reshuffle the chips.
  */
 export default async function FeedPage({
   searchParams,
@@ -89,13 +90,12 @@ export default async function FeedPage({
       </div>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-        {/* Remounted per filter set so a filter change resets query + optimistic state. */}
-        <FeedClient
-          key={JSON.stringify(filters)}
+        {/* FeedSection holds the mobile filter's recency/open state, then renders
+            FeedClient (remounted per filter set to reset query + optimistic state). */}
+        <FeedSection
           initialPage={initialPage}
           filters={filters}
           currentUser={currentUser}
-          mobileFilter={<FeedFilterMobile value={filters} />}
         />
       </section>
     </main>

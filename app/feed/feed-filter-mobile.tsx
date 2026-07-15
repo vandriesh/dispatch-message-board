@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { Settings } from "lucide-react"
 
 import {
@@ -22,9 +21,10 @@ const VISIBLE_TAGS = 3
 /**
  * Recency order (least-recent first). The selected tag is pulled to the most
  * recent slot so it always sits inside the visible window; with nothing selected
- * this is just the tag order, whose last three show by default.
+ * this is just the tag order, whose last three show by default. Used by the owning
+ * `FeedSection` to seed the state it holds on this component's behalf.
  */
-function initRecency(selected: Tag | null): Tag[] {
+export function initRecency(selected: Tag | null): Tag[] {
   const base = [...TAGS]
   return selected ? [...base.filter((t) => t !== selected), selected] : base
 }
@@ -37,16 +37,27 @@ function initRecency(selected: Tag | null): Tag[] {
  * shown — from the cog panel, which lists all four — makes it active and slides
  * it into the row, evicting the least-recently-used so three remain.
  *
- * The open/closed state and the recency order are local UI; the active filter
- * still lives in the query string (via `useFilterQuery`), so a shared link
- * restores it.
+ * Controlled: the open state and the recency order live in `FeedSection`, one
+ * level *above* the filter-keyed `FeedClient`, so they survive its per-filter
+ * remount — otherwise every pick would reset the window (chips would reshuffle).
+ * The active filter itself lives in the query string (via `useFilterQuery`).
  */
-export function FeedFilterMobile({ value }: { value: FeedFilters }) {
+export function FeedFilterMobile({
+  value,
+  recency,
+  onRecencyChange,
+  open,
+  onOpenChange,
+}: {
+  value: FeedFilters
+  recency: Tag[]
+  onRecencyChange: (next: Tag[]) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const onFilterChange = useFilterQuery()
-  const [open, setOpen] = React.useState(false)
 
   const selected = value.tag?.[0] ?? null
-  const [recency, setRecency] = React.useState<Tag[]>(() => initRecency(selected))
   const visible = recency.slice(-VISIBLE_TAGS)
 
   function selectTag(tag: Tag) {
@@ -57,7 +68,7 @@ export function FeedFilterMobile({ value }: { value: FeedFilters }) {
     // A hidden tag slides into the window (evicting the oldest); a tag already on
     // screen just becomes active without reshuffling the row.
     if (!visible.includes(tag)) {
-      setRecency((prev) => [...prev.filter((t) => t !== tag), tag])
+      onRecencyChange([...recency.filter((t) => t !== tag), tag])
     }
     onFilterChange({ tag: [tag] })
   }
@@ -79,7 +90,7 @@ export function FeedFilterMobile({ value }: { value: FeedFilters }) {
           aria-label="Toggle filters"
           aria-expanded={open}
           aria-controls="mobile-filters"
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => onOpenChange(!open)}
           className="ml-auto"
         >
           <Settings />
