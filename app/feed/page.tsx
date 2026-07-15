@@ -85,7 +85,7 @@ export default async function FeedPage({
       {/* Desktop rail; hidden below lg, where the cog panel under the composer
           takes over (F5–F7 on mobile). */}
       <div className="hidden lg:block lg:w-[296px] lg:shrink-0">
-        <FeedFilterBar value={filters} />
+        <FeedFilterBar />
       </div>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
