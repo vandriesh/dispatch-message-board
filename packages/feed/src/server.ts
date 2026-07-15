@@ -8,7 +8,14 @@ import "server-only"
  */
 export { feedQuerySchema, getMessages, type FeedQuery } from "./query"
 export {
+  addMessage,
   deleteMessage,
   editMessage,
+  findMessage,
+  forceDeleteFailure,
+  forceFailure,
+  postMessageSchema,
   type MutationResult,
+  type PostMessageInput,
 } from "./mutations"
+export { MOCK_LATENCY_MS, mockLatency } from "./latency"

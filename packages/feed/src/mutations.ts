@@ -1,11 +1,43 @@
 import "server-only"
 
-import type { Message } from "./message"
+import { z } from "zod"
+
+import { TAGS, type Message } from "./message"
 import { isOwner } from "./rbac"
 import { messagesStore } from "./store"
 
 /** The body cap shared with the composer (F2). */
 const MAX_BODY = 240
+
+/**
+ * The write side of the store (F2/F3/F8/F9), sitting behind the POST/PATCH/DELETE
+ * route handlers exactly as `getMessages` sits behind GET. Pure over the in-memory
+ * store and framework-free, so the ownership gate and validation are testable
+ * without a router — and swapping the mock store for a durable one stays a change
+ * to this module and `store.ts` alone (ADR-001).
+ */
+
+/** POST body: a non-empty message within the 240 cap (F2), carrying one tag (F3). */
+export const postMessageSchema = z.object({
+  body: z.string().trim().min(1).max(MAX_BODY),
+  tag: z.enum(TAGS),
+})
+export type PostMessageInput = z.infer<typeof postMessageSchema>
+
+/**
+ * The demo failure switches (ADR-005), so every optimistic rollback path is
+ * demonstrable on command rather than theoretical.
+ *
+ * Two words, because one can't cover all three verbs: `fail` rejects a *write*, so
+ * a "fail" message can never be saved — which means it could never exist to fail a
+ * *delete*. Delete therefore keys off a word that IS writable, `keep` ("keep this
+ * forever"): post it, then watch its delete roll back.
+ *
+ *   - post / edit → body contains "fail"  → 500
+ *   - delete      → stored body contains "keep" → 500
+ */
+export const forceFailure = (body: string): boolean => /fail/i.test(body)
+export const forceDeleteFailure = (body: string): boolean => /keep/i.test(body)
 
 /**
  * The outcome of an authorship mutation. `forbidden` is the ownership gate
@@ -16,6 +48,23 @@ const MAX_BODY = 240
 export type MutationResult =
   | { ok: true; message: Message }
   | { ok: false; error: "not_found" | "forbidden" | "invalid" }
+
+/** Peek a message by id without mutating — used to decide simulated-delete failure. */
+export const findMessage = (id: string): Message | undefined =>
+  messagesStore.find((m) => m.id === id)
+
+/** Insert a new message at the top of the store (newest-first) and return it (F2/F3). */
+export function addMessage(input: PostMessageInput, createdBy: string): Message {
+  const message: Message = {
+    id: `m_${crypto.randomUUID()}`,
+    body: input.body,
+    tag: input.tag,
+    createdBy,
+    createdAt: new Date().toISOString(),
+  }
+  messagesStore.unshift(message)
+  return message
+}
 
 /**
  * Edit a message's body (F8). Looks the record up in the store, re-checks

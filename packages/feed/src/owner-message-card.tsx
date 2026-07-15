@@ -3,94 +3,58 @@
 import * as React from "react"
 import { Badge, Button, Textarea } from "@dmb/ui-kit"
 
-import { type OwnedMessage } from "./rbac"
+import { type FeedRow, type OwnedMessage } from "./rbac"
 import { CardHeader, SimpleCard } from "./simple-card"
 
 const MAX = 240
 
 /**
- * The mutation callbacks the owner card invokes. Structural on purpose: the
- * concrete implementations are Server Actions that live in the app (they need the
- * session cookie), handed in as props — the feature package never imports from
- * `app/`, so the dependency only ever points one way. `edit`/`remove` resolve to
- * `{ ok }` so the card can surface the server's verdict; the server's `isOwner`
- * re-check is the real gate, not the button's visibility.
- */
-export type MessageActions = {
-  edit: (id: string, body: string) => Promise<{ ok: boolean; error?: string }>
-  remove: (id: string) => Promise<{ ok: boolean; error?: string }>
-}
-
-/**
- * The author's own card — the one place the edit/delete state machine lives. It
- * renders one of three presentational shapes and owns nothing else: `EditCard`
- * while editing, otherwise `SimpleCard` (variant "owner") with either the resting
- * EDIT/DELETE controls or the two-step delete confirmation in its actions slot.
- * Non-authors never reach here — the list renders a plain `SimpleCard` for them.
+ * The author's own card — the one place the edit/delete UI state machine lives
+ * (F8/F9). It renders one of three presentational shapes and owns nothing but that
+ * local UI state: `EditCard` while editing, otherwise `SimpleCard` (variant
+ * "owner") with either the resting EDIT/DELETE controls or the two-step delete
+ * confirmation in its actions slot. Non-authors never reach here — the list
+ * renders a plain `SimpleCard` for them.
  *
- * `body` is held locally so an edit shows immediately and a delete drops the row,
- * which also covers the client-appended LoadMore rows that `revalidatePath` can't
- * reach.
+ * The *data* changes are optimistic and live one level up: `onEdit`/`onDelete`
+ * apply to the TanStack Query cache immediately and reconcile with the server
+ * (ADR-005), so this card just fires the intent and lets the row's `pending` flag
+ * (and, on failure, the feed's error banner + rollback) tell the story. A pending
+ * row shows resting and dimmed with no controls until the server answers.
  */
 export function OwnerMessageCard({
   message,
-  actions,
+  error,
+  onEdit,
+  onDelete,
 }: {
-  message: OwnedMessage
-  actions: MessageActions
+  message: FeedRow
+  error?: string | null
+  onEdit: (id: string, body: string) => void
+  onDelete: (id: string) => void
 }) {
-  const [body, setBody] = React.useState(message.body)
   const [editing, setEditing] = React.useState(false)
   const [confirmingDelete, setConfirmingDelete] = React.useState(false)
-  const [deleted, setDeleted] = React.useState(false)
-  const [pending, setPending] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
 
-  if (deleted) return null
-
-  async function save(next: string) {
-    setPending(true)
-    setError(null)
-    const res = await actions.edit(message.id, next)
-    setPending(false)
-    if (!res.ok) {
-      setError(res.error ?? "Could not save the edit.")
-      return
-    }
-    setBody(next)
-    setEditing(false)
-  }
-
-  async function confirmRemove() {
-    setPending(true)
-    setError(null)
-    const res = await actions.remove(message.id)
-    if (!res.ok) {
-      setPending(false)
-      setConfirmingDelete(false)
-      setError(res.error ?? "Could not delete.")
-      return
-    }
-    setDeleted(true)
+  if (message.pending) {
+    return <SimpleCard message={message} variant="owner" pending />
   }
 
   if (editing) {
     return (
       <EditCard
-        message={{ ...message, body }}
-        pending={pending}
-        error={error}
-        onSave={save}
-        onCancel={() => {
+        message={message}
+        onSave={(next) => {
+          onEdit(message.id, next)
           setEditing(false)
-          setError(null)
         }}
+        onCancel={() => setEditing(false)}
       />
     )
   }
 
   return (
-    <SimpleCard message={{ ...message, body }} variant="owner" error={error}>
+    <SimpleCard message={message} variant="owner" error={error}>
       {confirmingDelete ? (
         // Delete is destructive and easy to hit by accident, so it takes two
         // steps: the resting DELETE arms this, and this row commits it.
@@ -98,41 +62,30 @@ export function OwnerMessageCard({
           <Button
             variant="destructive"
             size="xs"
-            onClick={confirmRemove}
-            disabled={pending}
+            onClick={() => {
+              onDelete(message.id)
+              setConfirmingDelete(false)
+            }}
           >
-            {pending ? "DELETING…" : "YES, I'M SURE. DELETE."}
+            YES, DELETE
           </Button>
           <Button
             variant="outline"
             size="xs"
             onClick={() => setConfirmingDelete(false)}
-            disabled={pending}
           >
             CANCEL
           </Button>
         </>
       ) : (
         <>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => {
-              setError(null)
-              setEditing(true)
-            }}
-            disabled={pending}
-          >
+          <Button variant="outline" size="xs" onClick={() => setEditing(true)}>
             EDIT
           </Button>
           <Button
             variant="destructive"
             size="xs"
-            onClick={() => {
-              setError(null)
-              setConfirmingDelete(true)
-            }}
-            disabled={pending}
+            onClick={() => setConfirmingDelete(true)}
           >
             DELETE
           </Button>
@@ -144,19 +97,16 @@ export function OwnerMessageCard({
 
 /**
  * The editing layout — a self-contained form owning only its draft. It calls
- * `onSave` with the trimmed body; the async work and error live in the parent.
- * Shares `CardHeader` with SimpleCard so the two stay visually identical.
+ * `onSave` with the trimmed body; the optimistic write and any error live in the
+ * parent chain. Shares `CardHeader` with SimpleCard so the two stay identical.
+ * Body-only by design (the tag is fixed at post time, F3).
  */
 function EditCard({
   message,
-  pending,
-  error,
   onSave,
   onCancel,
 }: {
   message: Pick<OwnedMessage, "author" | "createdAt" | "tag" | "body">
-  pending: boolean
-  error: string | null
   onSave: (body: string) => void
   onCancel: () => void
 }) {
@@ -173,7 +123,7 @@ function EditCard({
           aria-label="Edit message"
           value={draft}
           maxLength={MAX}
-          disabled={pending}
+          autoFocus
           onChange={(event) => setDraft(event.target.value)}
         />
         <span
@@ -188,30 +138,19 @@ function EditCard({
         </span>
       </div>
 
-      {error && (
-        <p role="alert" className="mt-2 font-mono text-[13px] text-destructive">
-          {error}
-        </p>
-      )}
-
       <div className="mt-4 flex items-center justify-between gap-2">
         <Badge variant="default">{message.tag}</Badge>
         <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={onCancel}
-            disabled={pending}
-          >
+          <Button variant="ghost" size="xs" onClick={onCancel}>
             CANCEL
           </Button>
           <Button
             variant="default"
             size="xs"
             onClick={() => onSave(draft.trim())}
-            disabled={pending || empty || over}
+            disabled={empty || over}
           >
-            {pending ? "SAVING…" : "SAVE"}
+            SAVE
           </Button>
         </div>
       </div>

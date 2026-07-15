@@ -12,11 +12,13 @@ export {
   TAGS,
   USERS,
   authorOf,
+  userFromIdentity,
   type FeedFilters,
   type FeedMessage,
   type FeedPage,
   type FeedUser,
   type Message,
+  type MessageDraft,
   type Tag,
 } from "./message"
 
@@ -24,14 +26,12 @@ export {
 export {
   isOwner,
   withOwnership,
+  type FeedRow,
   type OwnedFeedPage,
   type OwnedMessage,
 } from "./rbac"
 
-// Feature UI.
-export { Composer } from "./composer"
-export { Feed } from "./feed"
-export { type MessageActions } from "./owner-message-card"
-export { FeedEmpty } from "./feed-empty"
+// Feature UI. `FeedClient` is the container (query + optimistic mutations); it
+// composes the composer, feed list, and LOAD MORE internally.
+export { FeedClient } from "./feed-client"
 export { FeedFilterPanel } from "./feed-filters"
-export { LoadMore } from "./load-more"

@@ -44,6 +44,13 @@ export type OwnedMessage = FeedMessage & { owner: boolean }
 export type OwnedFeedPage = { items: OwnedMessage[]; nextCursor: string | null }
 
 /**
+ * A feed row as the client renders it: an `OwnedMessage` plus an optional
+ * `pending` flag the optimistic layer sets while a post/edit is unconfirmed
+ * (ADR-005). UI-only — it never touches the stored `Message`.
+ */
+export type FeedRow = OwnedMessage & { pending?: boolean }
+
+/**
  * Stamp the per-viewer `owner` flag onto a message.
  *
  * Called only at the server boundary (the feed page and the route handler),

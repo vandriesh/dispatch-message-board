@@ -1,29 +1,31 @@
-import { withOwnership } from "@dmb/feed"
-import { feedQuerySchema, getMessages } from "@dmb/feed/server"
-
 import { getSession } from "@/app/(auth)/session"
 
+import { authorOf, userFromIdentity, withOwnership, type FeedMessage } from "@dmb/feed"
+import {
+  addMessage,
+  feedQuerySchema,
+  forceFailure,
+  getMessages,
+  mockLatency,
+  postMessageSchema,
+} from "@dmb/feed/server"
+
 /**
- * GET /api/messages — the feed's read endpoint (ADR-001, B4). Thin by design: it
- * parses and validates the query, then hands off to the @dmb/feed store. Cursor
- * pagination and the filter contract both live in the feature package; this file
- * only speaks HTTP. Dynamic by necessity — it reads request params (Q1).
+ * The feed's collection endpoint (ADR-001, B4). Thin by design: parse and
+ * validate, then hand off to the @dmb/feed store. Cursor pagination and the
+ * filter/write contracts live in the feature package; this file only speaks HTTP.
+ * Dynamic by necessity — it reads request params and the session cookie (Q1).
  *
- *   ?user=u_adam&user=u_eva   repeatable — owner filter (F7)
- *   ?tag=PRODUCT&tag=DESIGN   repeatable — tag filter (F5)
- *   ?from=2026-07-01&to=…     inclusive date range (F6)
- *   ?cursor=…&limit=20        cursor pagination (F10, ADR-004)
- *
- * Session-gated to match the /feed page: the endpoint is the same data the page
- * renders, so it can't be readable unauthenticated. The session also feeds the
- * per-viewer `owner` stamp on each row (F8/F9), the same one page 1 gets in the
- * feed container.
+ *   GET  — read one filtered page (session-gated, owner-stamped per viewer)
+ *     ?user=u_adam&user=u_eva   repeatable — owner filter (F7)
+ *     ?tag=PRODUCT&tag=DESIGN   repeatable — tag filter (F5)
+ *     ?from=2026-07-01&to=…     inclusive date range (F6)
+ *     ?cursor=…&limit=20        cursor pagination (F10, ADR-004)
+ *   POST — create a message (F2/F3), optimistically inserted client-side first
  */
 export async function GET(request: Request) {
   const session = await getSession()
-  if (!session) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
 
@@ -43,9 +45,40 @@ export async function GET(request: Request) {
     )
   }
 
+  // Mock latency so `LOAD MORE` actually shows its loading state (ADR-005 latency).
+  await mockLatency()
   const { items, nextCursor } = getMessages(parsed.data)
+  // Stamp the per-viewer ownership flag here, where the session is available, so
+  // appended rows carry the same F8/F9 affordance the first page gets (rbac).
   return Response.json({
     items: items.map((m) => withOwnership(m, session.id)),
     nextCursor,
   })
+}
+
+export async function POST(request: Request) {
+  const session = await getSession()
+  if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 })
+
+  const parsed = postMessageSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    return Response.json(
+      { error: "Invalid message", issues: parsed.error.issues },
+      { status: 400 }
+    )
+  }
+
+  // Simulated failure (ADR-005): lets the client demonstrate optimistic rollback.
+  if (forceFailure(parsed.data.body)) {
+    await mockLatency()
+    return Response.json({ error: "Simulated failure" }, { status: 500 })
+  }
+
+  await mockLatency()
+  const message = addMessage(parsed.data, session.id)
+  const author = authorOf(message.createdBy) ?? userFromIdentity(session)
+  const created: FeedMessage = { ...message, author }
+  // Owner is always the poster — stamp it so the returned row swaps cleanly into
+  // the optimistic temp row (which is already `owner: true`).
+  return Response.json(withOwnership(created, session.id), { status: 201 })
 }

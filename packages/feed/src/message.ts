@@ -44,6 +44,21 @@ const USERS_BY_ID = new Map(USERS.map((u) => [u.id, u]))
 export const authorOf = (createdBy: string): FeedUser | undefined =>
   USERS_BY_ID.get(createdBy)
 
+/**
+ * Build a `FeedUser` from a session identity (`id` + `email`), deriving handle and
+ * name the same way `USERS` does. The one place this shape is minted, shared by
+ * three callers that must agree: the feed page (the logged-in author it hands to
+ * the composer), the write routes (denormalizing a fresh post's author), and the
+ * optimistic client (the temp row it shows before the server answers). It also
+ * lets a signed-in account that isn't one of the seeded three still author posts.
+ */
+export function userFromIdentity({ id, email }: { id: string; email: string }): FeedUser {
+  const seeded = USERS_BY_ID.get(id)
+  if (seeded) return seeded
+  const [handle] = email.split("@")
+  return { id, handle, name: handle[0].toUpperCase() + handle.slice(1), email }
+}
+
 /** A stored message. `body` is capped at 240 chars (F2). */
 export type Message = {
   id: string
@@ -55,6 +70,9 @@ export type Message = {
 
 /** What the feed API returns: a message with its author denormalized for display. */
 export type FeedMessage = Message & { author: FeedUser }
+
+/** The editable slice a compose/edit produces — body + tag (F2/F3/F8). Client-safe. */
+export type MessageDraft = { body: string; tag: Tag }
 
 /** One page of the feed. `nextCursor` is null at the end of the list. */
 export type FeedPage = {

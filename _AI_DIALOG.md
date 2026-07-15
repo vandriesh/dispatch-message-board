@@ -161,3 +161,16 @@ when submiting delete/edit - on server side check ownership again
 ---
 
 yes, also update the card
+
+---
+
+we need to mimic slow load - to be able to show skeleton object 
+2) - optimistic UI  -
+Implement optimistic UI updates for posting/editing/deleting messages,
+with rollback on simulated failure
+
+so I guess we need to add delay to all this operations - in order to implement optimistic UI
+
+---
+
+rebase from origin/master

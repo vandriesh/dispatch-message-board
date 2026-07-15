@@ -4,26 +4,16 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/app/(auth)/session"
 
 import {
-  Composer,
-  Feed,
-  FeedEmpty,
-  LoadMore,
+  FeedClient,
   TAGS,
+  userFromIdentity,
   withOwnership,
   type FeedFilters,
-  type MessageActions,
   type Tag,
 } from "@dmb/feed"
-import { getMessages } from "@dmb/feed/server"
+import { getMessages, mockLatency } from "@dmb/feed/server"
 
-import { deleteMessageAction, editMessageAction } from "./actions"
 import { FeedFilterBar } from "./feed-filter-bar"
-
-/** The edit/delete Server Actions, in the shape the cards consume (F8/F9). */
-const feedActions: MessageActions = {
-  edit: editMessageAction,
-  remove: deleteMessageAction,
-}
 
 export const metadata: Metadata = {
   title: "Feed — Dispatch",
@@ -54,21 +44,15 @@ function parseFilters(sp: SearchParams): FeedFilters {
 /**
  * The feed page (F4) — the container in the container/presentational split.
  *
- * It guards its own session first: no shared authenticated layout sits above it,
- * so the `!session` redirect is the real gate, not just type-narrowing. The top
- * bar (brand, avatar, LOG OUT) is rendered by the root layout whenever a session
- * exists (the top-bar ADR). Then it reads the filter params, fetches the first
- * filtered page on the server (Q1: dynamic SSR, first page rendered rather than
- * spinner'd), and branches three ways:
+ * It guards its own session first, then reads the filter params, fetches the first
+ * filtered page on the server, and stamps each row with the per-viewer `owner`
+ * flag (rbac) at this boundary — the one place with the session — so the store
+ * stays viewer-agnostic and the client never re-derives ownership. Pages 2..n get
+ * the same stamp in the `/api/messages` route. A mock latency runs first so the
+ * streaming skeleton (app/feed/loading.tsx) is actually seen (F11, ADR-005).
  *
- *   loading → app/feed/loading.tsx  (Next's streaming Suspense fallback)
- *   empty   → <FeedEmpty />
- *   data    → <Feed data={…} />
- *
- * Desktop layout (measured from the reference): a centered two-column grid on the
- * gray page — the FILTERS rail (296px) at left, the composer + feed + LOAD MORE at
- * right. It collapses to a single column below `lg`. `LoadMore` is keyed on the
- * active filters so a filter change resets its appended pages (ADR-004).
+ * The owner-stamped first page, the filters, and the logged-in user are handed to
+ * `FeedClient`, which owns the query cache and the optimistic post/edit/delete.
  */
 export default async function FeedPage({
   searchParams,
@@ -79,29 +63,25 @@ export default async function FeedPage({
   if (!session) redirect("/login")
 
   const filters = parseFilters(await searchParams)
+  await mockLatency()
   const { items, nextCursor } = getMessages({ ...filters, limit: PAGE_SIZE })
-
-  // Stamp the per-viewer ownership flag here, at the boundary that has the
-  // session — the store stays viewer-agnostic. Pages 2..n get the same treatment
-  // in the /api/messages route so appended rows carry the flag too.
-  const owned = items.map((m) => withOwnership(m, session.id))
+  const initialPage = {
+    items: items.map((m) => withOwnership(m, session.id)),
+    nextCursor,
+  }
+  const currentUser = userFromIdentity(session)
 
   return (
     <main className="mx-auto grid w-full max-w-[1120px] grid-cols-1 gap-8 p-4 lg:grid-cols-[296px_1fr] lg:p-8">
       <FeedFilterBar value={filters} />
 
       <section className="flex min-w-0 flex-col gap-4">
-        <Composer />
-        {owned.length === 0 ? (
-          <FeedEmpty />
-        ) : (
-          <Feed data={owned} actions={feedActions} />
-        )}
-        <LoadMore
+        {/* Remounted per filter set so a filter change resets query + optimistic state. */}
+        <FeedClient
           key={JSON.stringify(filters)}
+          initialPage={initialPage}
           filters={filters}
-          initialCursor={nextCursor}
-          actions={feedActions}
+          currentUser={currentUser}
         />
       </section>
     </main>

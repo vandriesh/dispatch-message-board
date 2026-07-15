@@ -20,16 +20,25 @@ export function SimpleCard({
   message,
   variant = "default",
   error,
+  pending,
   children,
 }: {
   message: Pick<FeedMessage, "author" | "body" | "tag" | "createdAt">
   variant?: "owner" | "default"
   error?: string | null
+  pending?: boolean
   children?: ReactNode
 }) {
   return (
-    <article className="border-[3px] border-ink bg-surface p-[18px]">
-      <CardHeader message={message} variant={variant} />
+    <article
+      className={
+        pending
+          ? "pointer-events-none border-[3px] border-ink bg-surface p-[18px] opacity-60"
+          : "border-[3px] border-ink bg-surface p-[18px]"
+      }
+      aria-busy={pending || undefined}
+    >
+      <CardHeader message={message} variant={variant} pending={pending} />
 
       <p className="mt-[14px] font-sans text-[16px] leading-[1.5] break-words">
         {message.body}
@@ -59,9 +68,11 @@ export function SimpleCard({
 export function CardHeader({
   message,
   variant,
+  pending,
 }: {
   message: Pick<FeedMessage, "author" | "createdAt">
   variant: "owner" | "default"
+  pending?: boolean
 }) {
   const { author } = message
   return (
@@ -79,7 +90,7 @@ export function CardHeader({
         dateTime={message.createdAt}
         className="text-[12px] text-muted-foreground"
       >
-        {timeAgo(message.createdAt)}
+        {pending ? "sending…" : timeAgo(message.createdAt)}
       </time>
     </header>
   )

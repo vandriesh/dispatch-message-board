@@ -13,26 +13,53 @@ import {
   Textarea,
 } from "@dmb/ui-kit"
 
-import { TAGS, type Tag } from "./message"
+import { TAGS, type MessageDraft, type Tag } from "./message"
 
 const MAX = 240
 
 /**
  * The composer (F2). Tag is a single-select (one tag per message — O2); the body
- * is capped at 240. Submit is intentionally a no-op for now — this lands the form
- * and its guard rails; wiring `POST /api/messages` with an optimistic insert and
- * rollback (ADR-005) is the next step, and it stays framework-agnostic here just
- * like the login form, so it can be tested with MSW rather than a router mock.
+ * is capped at 240. Submit hands a draft to `onPost` and clears immediately: the
+ * post is optimistic (ADR-005), so the row shows in the feed at once and the form
+ * is ready for the next message before the server answers. It stays
+ * framework-agnostic — the mutation and its rollback live one level up in
+ * `FeedClient` — so it can be tested without a router.
  */
-export function Composer() {
+export function Composer({
+  onPost,
+  error,
+  restore,
+}: {
+  onPost: (draft: MessageDraft) => void
+  error?: string | null
+  restore?: MessageDraft | null
+}) {
   const [body, setBody] = React.useState("")
   const [tag, setTag] = React.useState<Tag>(TAGS[0])
   const over = body.length > MAX
   const canPost = body.trim().length > 0 && !over
 
+  // A rejected post is handed back via `restore` (new identity per failure) so the
+  // text isn't lost. Only refill when the field is empty, so a message typed during
+  // the in-flight window is never clobbered. `body` is read through a ref kept
+  // current in an effect (not during render), so the refill effect can stay keyed
+  // on `restore` alone rather than re-running on every keystroke.
+  const bodyRef = React.useRef(body)
+  React.useEffect(() => {
+    bodyRef.current = body
+  }, [body])
+  React.useEffect(() => {
+    if (restore && bodyRef.current.trim().length === 0) {
+      setBody(restore.body)
+      setTag(restore.tag)
+    }
+  }, [restore])
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    // TODO(F2): POST /api/messages, optimistic insert + rollback on failure (ADR-005).
+    if (!canPost) return
+    onPost({ body: body.trim(), tag })
+    setBody("")
   }
 
   return (
@@ -83,6 +110,12 @@ export function Composer() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <p role="alert" className="font-mono text-[13px] text-destructive">
+          {error}
+        </p>
+      )}
     </form>
   )
 }

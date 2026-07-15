@@ -20,16 +20,16 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 | ID | Requirement | Status |
 |----|-------------|--------|
 | F1 | Users can log in. Users are mocked/pre-created — **no sign-up flow**. | Form + validation done (`@dmb/auth`); session-gated top bar + `LOG OUT` in the root layout land the login→feed→logout loop (ADR-012); login is a Server Action against `verifyCredentials` |
-| F2 | Authenticated users can post short messages, **max 240 characters**. | Composer form + 240 guard done (`@dmb/feed` `Composer`); submit is a deliberate no-op pending the `POST` route (ADR-005) |
-| F3 | A message carries a **tag** (category), assigned at post time. | Tag vocab modeled; single-select in the composer. Post wiring pending with F2 |
+| F2 | Authenticated users can post short messages, **max 240 characters**. | Done — `Composer` posts via `POST /api/messages` with an optimistic insert + rollback (ADR-005); 240 guard on both the composer and the route's zod schema |
+| F3 | A message carries a **tag** (category), assigned at post time. | Done — single-select in the composer; the tag rides the `POST` body and is enforced by the schema |
 | F4 | All messages are visible on a Message Page (the feed). | Done — `/feed` server-renders the first page from `@dmb/feed` (ADR-013) |
 | F5 | Feed can be filtered by **tag**. | Done — endpoint + URL-driven multi-select toggle |
 | F6 | Feed can be filtered by **date & time**. | Date **range** done (`from`/`to`, inclusive). Time-of-day not exposed — see O3 |
 | F7 | Feed can be filtered by **user**. | Done — endpoint + URL-driven owner dropdown (single-select, "All users" clears; per the design) |
-| F8 | Only the **author** can inline-edit their own message. | Not started — id contract aligned (`u_${name}` from `verifyCredentials`, ADR-013) so the check has real inputs |
-| F9 | Only the **author** can delete their own message. | Not started — same contract alignment as F8 |
-| F10 | Feed supports **pagination or infinite scroll** (either is acceptable). | `LOAD MORE` button wired to the cursor endpoint (ADR-004). Auto-fetch-on-scroll + virtualization pending |
-| F11 | Feed has **loading** and **empty** states. | Done — `app/feed/loading.tsx` (streaming) + `<FeedEmpty>` |
+| F8 | Only the **author** can inline-edit their own message. | Done — `OwnerMessageCard`'s inline `EditCard` (body-only) via `PATCH /api/messages/[id]`, optimistic + rollback; the `owner` flag (rbac) shows EDIT only on your own rows, author re-checked in the store (403 otherwise) |
+| F9 | Only the **author** can delete their own message. | Done — two-step delete confirm → optimistic `DELETE /api/messages/[id]`; `owner`-gated affordance, author enforced server-side |
+| F10 | Feed supports **pagination or infinite scroll** (either is acceptable). | `LOAD MORE` now drives `useInfiniteQuery.fetchNextPage` (ADR-005/006); cursor endpoint unchanged. Auto-fetch-on-scroll + virtualization still pending |
+| F11 | Feed has **loading** and **empty** states. | Done — `app/feed/loading.tsx` (streaming) + `<FeedEmpty>`; the skeleton is now actually visible because the SSR fetch awaits a mock latency (ADR-005) |
 | F12 | Layout is **responsive** (mobile + desktop). | Desktop 2-col grid done (measured: 296px rail + feed, 1120 max, gap/padding 32). Mobile stacks to one column, no overflow; the design's `⚙` filter drawer is a later polish |
 | F13 | Active filters (tag/date/user) are **reflected in the URL**, so filtered views are shareable/bookmarkable. | Done — filters are the URL (ADR-002); verified cold-load hydration |
 
@@ -56,9 +56,9 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 
 | ID | Item | Status |
 |----|------|--------|
-| B1 | At least one test (e.g. a component or hook test). | Done — login flow, RTL + MSW v2 (ADR-011) |
+| B1 | At least one test (e.g. a component or hook test). | Done — login flow (RTL + MSW v2, ADR-011) **and** the optimistic post rollback (`feed-mutations.test.tsx`: row appears → rolls back → error surfaces) |
 | B2 | List virtualization for the feed — smooth interaction at **1000+ entries**. | Not started |
-| B3 | Optimistic UI for post/edit/delete, **with rollback on simulated failure**. | Not started |
+| B3 | Optimistic UI for post/edit/delete, **with rollback on simulated failure**. | Done — TanStack Query `onMutate`/`onError` (ADR-005). `fail` forces a write failure, `keep` forces a delete failure; both roll back with an inline error |
 | B4 | Actual **route handlers** for mocked data/requests — shows how contracts with backend are established. Called out in the brief as a bonus. | Done for the feed — `GET /api/messages` with cursor pagination + filters (ADR-012) |
 
 ## Bonus questions (to answer in writing)

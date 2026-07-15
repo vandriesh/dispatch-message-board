@@ -163,14 +163,46 @@ TanStack Query + `useInfiniteQuery` for a single button isn't worth it yet. The 
 enhancement and virtualization are still pending** (ADR-006) — that's the point at which Query's
 in-flight dedupe starts earning its weight.
 
-### ADR-005 — Optimistic UI with real rollback — Proposed
-Post/edit/delete (B3) apply immediately against a local overlay, then reconcile with the
-server response; a non-2xx rolls the item back and surfaces the failure. The mock API exposes
-a way to force failures so the rollback path is demonstrable rather than theoretical.
+### ADR-005 — Optimistic UI with real rollback — Accepted
+Post/edit/delete (B3) apply immediately against the TanStack Query cache, then reconcile with
+the server response; a non-2xx rolls the item back and surfaces the failure. The mock API
+exposes a way to force failures so the rollback path is demonstrable rather than theoretical.
 
 **Why it's non-trivial:** the rollback has to survive a list that may have re-sorted or
 re-filtered underneath it. Optimistic entries therefore carry a client-side temp id until the
 server assigns a real one.
+
+**As built:**
+- **Vehicle: TanStack Query** (ADR-006), not a hand-rolled overlay. `usePostMessage` /
+  `useEditMessage` / `useDeleteMessage` (`packages/feed/src/feed-mutations.ts`) run
+  `onMutate` (snapshot the `["messages", filters]` cache, apply the change, mark the row
+  `pending`) → `onError` (restore the snapshot — the rollback — and surface an inline error)
+  → `onSuccess` (swap the temp/pending row for the server's, so the temp id yields to the real
+  one). The refactor this required — folding the server-rendered first page and the LOAD MORE
+  pages into one client-owned `useInfiniteQuery` (`FeedClient`) — is what made a single list
+  the overlay can act on.
+- **Transport: REST route handlers.** `POST /api/messages`, `PATCH`/`DELETE
+  /api/messages/[id]`. Author-only for edit/delete (F8/F9), enforced in the store
+  (`mutations.ts`) and mapped to 403/404 at the route. Matches the existing `GET` read path
+  and Query's fetch-based `mutationFn`. This **superseded the earlier Server-Actions +
+  `revalidatePath` edit/delete** (from the F8/F9 commit): `revalidatePath` can only refresh the
+  server-rendered page, not the client-appended LOAD MORE rows or an optimistic insert, so once
+  the list became one client-owned cache the mutations had to reconcile through Query.
+- **Ownership model kept from the F8/F9 work.** `rbac.ts`'s `isOwner` / `withOwnership` stamps a
+  per-viewer `owner` flag at the server boundary (the page and the `GET` route), and the feed
+  branches each row on it: `OwnerMessageCard` (interactive — inline `EditCard` + a two-step
+  delete confirm) vs a plain `SimpleCard`. Those cards were rewired from Server Actions to the
+  optimistic handlers; edit is **body-only** (the tag is fixed at post time, F3).
+- **Simulated failure: two magic words.** A body containing **`fail`** makes a *write*
+  (post/edit) return 500; a stored body containing **`keep`** makes its *delete* return 500.
+  Two words because one can't cover all three verbs — a `fail` body can never be saved, so it
+  could never exist to fail a delete; `keep` is writable, so you post it then watch its delete
+  roll back. Lives in `forceFailure` / `forceDeleteFailure`.
+- **Simulated latency.** A single `server-only` `mockLatency()` (`latency.ts`, ~1.2s,
+  no-op under test) is awaited in the feed page's SSR fetch (so the streaming skeleton, F11,
+  is actually seen), in `GET` (so LOAD MORE shows its loading label), and in every mutation
+  route (so the optimistic window is visible before reconciliation). It's a mock affordance
+  that disappears with the mock store.
 
 ### ADR-006 — No global state library; TanStack Query for server cache — Accepted
 **No Redux, no Zustand.** Filters live in the URL (ADR-002); the only genuinely client-side
@@ -194,6 +226,13 @@ is reimplementing dedup, retry, and rollback by hand.
 
 Pairs with **`@tanstack/react-virtual`** for the DOM side (ADR-004). Separate package, separate
 job: Query owns the data, Virtual owns the rows.
+
+**Now installed and in use (ADR-005).** `QueryClientProvider` lives in `app/providers.tsx`
+(mounted in the root layout); `FeedClient` runs the `useInfiniteQuery` with the SSR first page
+handed in as `initialData` (hydrated, not refetched — Q1) and the LOAD MORE button reduced to
+`fetchNextPage`. The `onMutate`/`onError` rollback is the second of the three justifications,
+delivered. Still pending: auto-fetch-on-scroll and `@tanstack/react-virtual` (the first
+justification, dedupe, only fully earns out once both trigger paths exist).
 
 ### ADR-007 — Styling: Tailwind v4 + tokens *measured* from the design — Accepted
 Tailwind v4 is kept from the scaffold. Tokens are defined in `app/globals.css` under `@theme`,

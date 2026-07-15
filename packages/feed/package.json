@@ -16,6 +16,7 @@
   },
   "peerDependencies": {
     "@dmb/ui-kit": "*",
+    "@tanstack/react-query": "^5",
     "react": "^19",
     "react-dom": "^19"
   }

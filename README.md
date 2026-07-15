@@ -4,12 +4,13 @@ A small Next.js message board built for the SDE Frontend Challenge: mock-authent
 post short tagged messages to a shared feed, which can be filtered by tag, user, and date
 range — with the active filters reflected in the URL so any filtered view is shareable.
 
-> **Project status: design system, login, and the feed read path.** `@dmb/ui-kit` (browse it at
-> `/ui-kit`), `@dmb/auth`, and now `@dmb/feed` — the faker-seeded mock store, the
-> `GET /api/messages` route handler, and the feed/composer/filter UI at `/feed` — are built.
-> Posting, inline edit/delete, and client-side infinite scroll are next. See
-> [_ARCHITECTURE.md](_ARCHITECTURE.md) for the decisions and [_REQUIREMENTS.md](_REQUIREMENTS.md)
-> for what's done.
+> **Project status: design system, login, and the full feed — read and write.** `@dmb/ui-kit`
+> (browse it at `/ui-kit`), `@dmb/auth`, and `@dmb/feed` are built: the faker-seeded mock store,
+> the `GET`/`POST`/`PATCH`/`DELETE` route handlers, and the feed/composer/filter UI at `/feed`,
+> now including **optimistic post/inline-edit/delete with rollback** (TanStack Query) and a
+> simulated latency that makes the loading skeleton real. Auto-fetch-on-scroll and virtualization
+> are next. See [_ARCHITECTURE.md](_ARCHITECTURE.md) for the decisions and
+> [_REQUIREMENTS.md](_REQUIREMENTS.md) for what's done.
 
 ## Getting started
 
@@ -76,7 +77,10 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
 - **`LOAD MORE` button as designed, with auto-fetch layered on top**, over cursor pagination
   and a virtualized list for 1000+ entries. The button stays because it's the control keyboard
   and screen-reader users can actually reach; auto-fetch is the enhancement, not the baseline.
-- **Optimistic post/edit/delete with rollback** against genuinely failing requests.
+- **Optimistic post/edit/delete with real rollback** ([ADR-005](_ARCHITECTURE.md)) — TanStack
+  Query `onMutate`/`onError` over one client-owned list. A body with **`fail`** forces a write to
+  fail, a stored **`keep`** forces a delete to fail; both roll back with an inline error. A mock
+  ~1.2s latency makes the optimistic window and the loading skeleton visible.
 - **No global state library** — filters are in the URL and server data stays on the server, so
   a store would duplicate state rather than manage it.
 - **Modular by feature, extracted gradually.** Domain code lives in `features/<feature>/`;

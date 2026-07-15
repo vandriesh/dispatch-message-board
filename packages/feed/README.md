@@ -4,12 +4,13 @@ The message feed feature: the domain model, the mock store, cursor pagination, a
 composer / filter / feed UI.
 
 ```ts
-// client-safe — model + UI
-import { Composer, Feed, FeedEmpty, FeedFilterPanel, TAGS, USERS } from "@dmb/feed"
+// client-safe — model + UI (FeedClient is the container: query + optimistic mutations)
+import { FeedClient, FeedFilterPanel, TAGS, USERS, userFromIdentity } from "@dmb/feed"
 import type { FeedMessage, FeedFilters, Message, Tag } from "@dmb/feed"
 
-// server-only — the store + the read
+// server-only — the store, the read, and the writes
 import { getMessages, feedQuerySchema } from "@dmb/feed/server"
+import { addMessage, editMessage, deleteMessage, mockLatency } from "@dmb/feed/server"
 ```
 
 ## The two entry points, and why they're two
@@ -24,10 +25,12 @@ Nothing here imports `next/*`. The Next-aware glue lives in `app/`:
 
 | File | Role |
 |---|---|
-| `app/api/messages/route.ts` | `GET /api/messages` — parse + validate → `getMessages` → JSON |
-| `app/feed/page.tsx` | container: the desktop 2-col grid; server-renders the first filtered page, branches empty/data |
+| `app/api/messages/route.ts` | `GET` (read a page) + `POST` (create) — parse/validate → store → JSON |
+| `app/api/messages/[id]/route.ts` | `PATCH` (edit) + `DELETE` — author-only (F8/F9), 403/404 on refusal |
+| `app/feed/page.tsx` | container: the desktop 2-col grid; server-renders the first filtered page, hands it to `FeedClient` |
 | `app/feed/loading.tsx` | the loading state (Next streaming Suspense fallback) |
 | `app/feed/feed-filter-bar.tsx` | wires `FeedFilterPanel` to the URL via `router.replace` |
+| `app/providers.tsx` | the `QueryClientProvider` boundary (ADR-006) |
 
 Desktop layout is a centered two-column grid (measured from the reference): a 296px `FILTERS`
 rail at left, the composer + feed + `LOAD MORE` at right, `1120px` max width; it collapses to a
@@ -70,20 +73,44 @@ src/
   query.ts          # server-only: getMessages + cursor + feedQuerySchema
   server.ts         # server-only barrel (@dmb/feed/server)
   index.ts          # client-safe barrel (@dmb/feed)
-  composer.tsx      # "use client" — the 240-char composer (submit is a no-op for now)
-  feed.tsx          # presentational feed list + message card
+  rbac.ts           # client-safe: isOwner + withOwnership (per-viewer `owner` flag) — F8/F9
+  mutations.ts      # server-only: addMessage/editMessage/deleteMessage (isOwner gate) +
+                    #   postMessageSchema; forceFailure/forceDeleteFailure (the demo switches)
+  latency.ts        # server-only: mockLatency() — one knob, ~1.2s, no-op under test
+  composer.tsx      # "use client" — the 240-char composer; posts via onPost
+  feed.tsx          # "use client" — the list; branches each row on `owner`
+  simple-card.tsx   # the resting card (chrome + actions slot); owner/default variants
+  owner-message-card.tsx # "use client" — author's card: inline EditCard + two-step delete
   feed-empty.tsx    # empty state
   feed-filters.tsx  # "use client" — presentational FILTERS rail: tag chips (multi), user
                     #   dropdown (single, "All users" clears), stacked date range
-  load-more.tsx     # "use client" — LOAD MORE button; fetches pages 2..n from the endpoint
+  feed-query.ts     # client-safe: query key + URL builder + page fetch (shared by list + mutations)
+  feed-client.tsx   # "use client" — the container: useInfiniteQuery + the 3 optimistic mutations
+  feed-mutations.ts # "use client" — usePostMessage/useEditMessage/useDeleteMessage (onMutate/onError)
+  load-more.tsx     # "use client" — thin LOAD MORE button over fetchNextPage
 ```
+
+## Mutations & the optimistic overlay (ADR-005)
+
+`POST /api/messages`, `PATCH`/`DELETE /api/messages/[id]`. Each mutation applies to the
+`["messages", filters]` cache immediately, then reconciles; a non-2xx rolls back and surfaces an
+inline error. Edit/delete are **author-only** — enforced in the store, shown only on your own rows.
+
+**Demoing the rollback (the magic words):**
+
+- Post or edit a body containing **`fail`** → the write returns 500 and rolls back.
+- Post a body containing **`keep`** (it saves), then delete it → the delete returns 500 and the
+  row comes back. (Two words because a `fail` body can never be saved, so it could never exist to
+  fail a delete.)
+
+Every write also lags ~1.2s (`mockLatency`) so the optimistic window — and the streaming skeleton
+and the LOAD MORE loading label — are actually visible. It's a mock affordance; it goes with the
+mock store.
 
 ## What's deferred
 
-- **Posting** — `Composer` submit is a deliberate no-op; the `POST` route with optimistic insert
-  and rollback is [ADR-005](../../_ARCHITECTURE.md).
-- **Auto-fetch + virtualization** — the `LOAD MORE` button works today; auto-fetch-on-scroll and
-  `@tanstack/react-virtual` over 1000+ rows ([ADR-004]/[ADR-006]) wrap `<Feed>` without changing
-  its shape. That's the point at which TanStack Query's in-flight dedupe earns its weight.
+- **Auto-fetch + virtualization** — the `LOAD MORE` button (now `fetchNextPage`) works today;
+  auto-fetch-on-scroll and `@tanstack/react-virtual` over 1000+ rows ([ADR-004]/[ADR-006]) wrap
+  `<Feed>` without changing its shape.
 - **Mobile filter drawer** — filters stack above the feed on mobile; the design's `⚙` drawer is
   a later polish.

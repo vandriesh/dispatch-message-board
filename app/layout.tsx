@@ -13,6 +13,7 @@ import "./globals.css";
 
 import { getSession } from "@/app/(auth)/session";
 import { logoutAction } from "@/app/(auth)/logout/actions";
+import { Providers } from "./providers";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -111,8 +112,10 @@ export default async function RootLayout({
       className={`${spaceGrotesk.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {session && <TopBar email={session.email} />}
-        {children}
+        <Providers>
+          {session && <TopBar email={session.email} />}
+          {children}
+        </Providers>
       </body>
     </html>
   );
