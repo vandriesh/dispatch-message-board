@@ -12,7 +12,7 @@ import {
   cn,
 } from "@dmb/ui-kit"
 
-import { TAGS, USERS, type FeedFilters, type Tag } from "./message"
+import { TAGS, USERS, type FeedFilters, type Tag } from "../message"
 
 // Sentinel for the user dropdown's "show everyone" option — selecting it clears
 // the owner filter rather than filtering to a user named "all".

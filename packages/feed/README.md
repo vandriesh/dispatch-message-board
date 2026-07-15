@@ -4,8 +4,9 @@ The message feed feature: the domain model, the mock store, cursor pagination, a
 composer / filter / feed UI.
 
 ```ts
-// client-safe — model + UI (FeedClient is the container: query + optimistic mutations)
-import { FeedClient, FeedFilterPanel, TAGS, USERS, userFromIdentity } from "@dmb/feed"
+// client-safe — model + UI (FeedSection is the container: query + optimistic mutations;
+// FeedFilterBar is the desktop rail)
+import { FeedFilterBar, FeedSection, TAGS, USERS, userFromIdentity } from "@dmb/feed"
 import type { FeedMessage, FeedFilters, Message, Tag } from "@dmb/feed"
 
 // server-only — the store, the read, and the writes
@@ -21,15 +22,18 @@ the store depends on `@faker-js/faker` (~5MB), and `import "server-only"` plus a
 mean a client component that imports from `@dmb/feed` *cannot* drag it into the bundle. The
 boundary is enforced by the module graph, not by discipline.
 
-Nothing here imports `next/*`. The Next-aware glue lives in `app/`:
+Most of the package imports no `next/*` — the model, store, cards, and `FeedClient` stay
+framework-free. The one exception is **`src/filter/`**: filtering is URL-synced (ADR-002), so its
+`useFilterQuery` uses `next/navigation`, and the filter entry points (`FeedFilterBar` for the
+desktop rail, `FeedSection` for the section) live there beside the presentational controls. The
+rest of the Next glue is the route surface in `app/`:
 
 | File | Role |
 |---|---|
 | `app/api/messages/route.ts` | `GET` (read a page) + `POST` (create) — parse/validate → store → JSON |
 | `app/api/messages/[id]/route.ts` | `PATCH` (edit) + `DELETE` — author-only (F8/F9), 403/404 on refusal |
-| `app/feed/page.tsx` | container: the desktop 2-col grid; server-renders the first filtered page, hands it to `FeedClient` |
+| `app/feed/page.tsx` | thin route: server-renders the first filtered page, hands it to `FeedFilterBar` + `FeedSection` |
 | `app/feed/loading.tsx` | the loading state (Next streaming Suspense fallback) |
-| `app/feed/feed-filter-bar.tsx` | wires `FeedFilterPanel` to the URL via `router.replace` |
 | `app/providers.tsx` | the `QueryClientProvider` boundary (ADR-006) |
 
 Desktop layout is a centered two-column grid (measured from the reference): a 296px `FILTERS`
@@ -82,12 +86,17 @@ src/
   simple-card.tsx   # the resting card (chrome + actions slot); owner/default variants
   owner-message-card.tsx # "use client" — author's card: inline EditCard + two-step delete
   feed-empty.tsx    # empty state
-  feed-filters.tsx  # "use client" — presentational FILTERS rail: tag chips (multi), user
-                    #   dropdown (single, "All users" clears), stacked date range
   feed-query.ts     # client-safe: query key + URL builder + page fetch (shared by list + mutations)
   feed-client.tsx   # "use client" — the container: useInfiniteQuery + the 3 optimistic mutations
   feed-mutations.ts # "use client" — usePostMessage/useEditMessage/useDeleteMessage (onMutate/onError)
   load-more.tsx     # "use client" — thin LOAD MORE / LOAD ALL buttons over fetchNextPage
+  filter/           # the filter concern — URL-synced, so this is the one place that uses next/*
+    feed-filters.tsx      # "use client" — presentational controls: FeedFilterPanel (rail),
+                          #   TagSelect (mobile single-select), UserDateFilter, tag chips, clear
+    use-filter-query.ts   # "use client" — the next/navigation glue: onFilterChange → router.replace
+    feed-filter-bar.tsx   # "use client" — desktop rail: FeedFilterPanel wired to the URL
+    feed-filter-mobile.tsx # "use client" — mobile cog panel + the MRU single-select tag row
+    feed-section.tsx      # "use client" — holds the mobile recency/open state, renders FeedClient
 ```
 
 ## Mutations & the optimistic overlay (ADR-005)

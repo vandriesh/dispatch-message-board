@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/app/(auth)/session"
 
 import {
+  FeedFilterBar,
+  FeedSection,
   TAGS,
   userFromIdentity,
   withOwnership,
@@ -11,9 +13,6 @@ import {
   type Tag,
 } from "@dmb/feed"
 import { getMessages, mockLatency } from "@dmb/feed/server"
-
-import { FeedFilterBar } from "./feed-filter-bar"
-import { FeedSection } from "./feed-section"
 
 export const metadata: Metadata = {
   title: "Feed — Dispatch",

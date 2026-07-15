@@ -2,17 +2,15 @@
 
 import { Settings } from "lucide-react"
 
+import { Button } from "@dmb/ui-kit"
+
+import { TAGS, type FeedFilters, type Tag } from "../message"
 import {
   ClearButton,
   CLEARED_FILTERS,
-  TAGS,
   TagSelect,
   UserDateFilter,
-  type FeedFilters,
-  type Tag,
-} from "@dmb/feed"
-import { Button } from "@dmb/ui-kit"
-
+} from "./feed-filters"
 import { useFilterQuery } from "./use-filter-query"
 
 /** How many tag chips the bar shows at once. */

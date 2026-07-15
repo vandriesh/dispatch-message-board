@@ -31,14 +31,9 @@ export {
   type OwnedMessage,
 } from "./rbac"
 
-// Feature UI. `FeedClient` is the container (query + optimistic mutations); it
-// composes the composer, feed list, and LOAD MORE internally, and takes the
-// mobile filter as a slot so the app-shell can pin it under the composer.
-export { FeedClient } from "./feed-client"
-export {
-  ClearButton,
-  CLEARED_FILTERS,
-  FeedFilterPanel,
-  TagSelect,
-  UserDateFilter,
-} from "./feed-filters"
+// Feature UI. The two entry points the route renders: the desktop filter rail
+// and the feed section (which owns the query + optimistic mutations via
+// FeedClient, and pins the mobile cog filter under the composer). Both, plus the
+// URL-aware filter glue and the presentational filter controls, live in ./filter.
+export { FeedFilterBar } from "./filter/feed-filter-bar"
+export { FeedSection } from "./filter/feed-section"

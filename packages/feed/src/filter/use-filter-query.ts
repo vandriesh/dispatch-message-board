@@ -1,7 +1,8 @@
 "use client"
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { type FeedFilters } from "@dmb/feed"
+
+import { type FeedFilters } from "../message"
 
 /**
  * The Next-aware half of filtering, and deliberately the only half that knows the

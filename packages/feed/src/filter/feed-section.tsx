@@ -2,14 +2,9 @@
 
 import * as React from "react"
 
-import {
-  FeedClient,
-  type FeedFilters,
-  type FeedUser,
-  type OwnedFeedPage,
-  type Tag,
-} from "@dmb/feed"
-
+import { FeedClient } from "../feed-client"
+import { type FeedFilters, type FeedUser, type Tag } from "../message"
+import { type OwnedFeedPage } from "../rbac"
 import { FeedFilterMobile, initRecency } from "./feed-filter-mobile"
 
 /**

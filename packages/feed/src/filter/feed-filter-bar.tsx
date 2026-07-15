@@ -1,7 +1,7 @@
 "use client"
 
-import { FeedFilterPanel, type FeedFilters } from "@dmb/feed"
-
+import { type FeedFilters } from "../message"
+import { FeedFilterPanel } from "./feed-filters"
 import { useFilterQuery } from "./use-filter-query"
 
 /**
