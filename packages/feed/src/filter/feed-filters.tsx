@@ -27,54 +27,10 @@ export const CLEARED_FILTERS: Partial<FeedFilters> = {
 }
 
 /**
- * The tag chips (F5) — multi-select, the accent-filled `Badge` is the pressed
- * state. Used on the desktop rail, where any number of tags can be active.
- */
-function TagFilter({
-  value,
-  onFilterChange,
-}: {
-  value: FeedFilters
-  onFilterChange: (patch: Partial<FeedFilters>) => void
-}) {
-  const selectedTags = value.tag ?? []
-
-  function toggleTag(tag: Tag) {
-    const next = selectedTags.includes(tag)
-      ? selectedTags.filter((t) => t !== tag)
-      : [...selectedTags, tag]
-    onFilterChange({ tag: next.length > 0 ? next : undefined })
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {TAGS.map((tag) => {
-        const selected = selectedTags.includes(tag)
-        return (
-          <Badge
-            key={tag}
-            variant={selected ? "default" : "outline"}
-            render={
-              <button
-                type="button"
-                aria-pressed={selected}
-                onClick={() => toggleTag(tag)}
-              />
-            }
-          >
-            {tag}
-          </Badge>
-        )
-      })}
-    </div>
-  )
-}
-
-/**
- * Single-select tag chips (mobile, F5) — presentational. Unlike the multi-select
- * `TagFilter` on the desktop rail, exactly one tag is active at a time; tapping
- * the active one clears it. The caller owns which tags to render (the mobile bar
- * shows the recent few, the cog panel shows all) and the selection/MRU logic.
+ * Tag chips (F5) — presentational, radio behaviour: exactly one tag is active at
+ * a time. Shared by the desktop rail (all four chips) and the mobile bar/panel
+ * (a subset). The caller owns which tags to render and what a select means —
+ * both surfaces treat clicking the active chip as clearing it.
  */
 export function TagSelect({
   tags,
@@ -188,8 +144,8 @@ export function UserDateFilter({
  * about the URL — that lives in the container (app/feed/feed-filter-bar.tsx),
  * the same seam @dmb/auth uses to keep `next/*` out of the feature package.
  *
- * It composes `TagFilter` and `UserDateFilter`; the mobile layout reuses those
- * two pieces directly around a cog toggle (app/feed/feed-filter-mobile.tsx).
+ * It composes `TagSelect` and `UserDateFilter`; the mobile layout reuses those
+ * two pieces directly around a cog toggle (filter/feed-filter-mobile.tsx).
  */
 export function FeedFilterPanel({
   value,
@@ -198,6 +154,8 @@ export function FeedFilterPanel({
   value: FeedFilters
   onFilterChange: (patch: Partial<FeedFilters>) => void
 }) {
+  const selectedTag = value.tag?.[0] ?? null
+
   return (
     <aside className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -207,7 +165,13 @@ export function FeedFilterPanel({
 
       <div>
         <FilterLabel>Tag</FilterLabel>
-        <TagFilter value={value} onFilterChange={onFilterChange} />
+        <TagSelect
+          tags={TAGS}
+          selected={selectedTag}
+          onSelect={(tag) =>
+            onFilterChange({ tag: tag === selectedTag ? undefined : [tag] })
+          }
+        />
       </div>
 
       <UserDateFilter value={value} onFilterChange={onFilterChange} />

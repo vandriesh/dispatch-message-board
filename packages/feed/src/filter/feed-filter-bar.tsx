@@ -13,11 +13,14 @@ import { parseFilterParams, useFilterQuery } from "./use-filter-query"
  *
  * The tag selection is held optimistically. The URL is the source of truth, but a
  * navigation only commits after the mock latency (~1.2s, ADR-005), and the rail
- * isn't replaced by the loading skeleton during that window — so if it toggled
- * against the URL/prop, a quick second pick would read stale state and drop the
- * first (multi-select would behave like single-select). Instead it mirrors the
- * tags into local state, updates them on the same click that writes the URL, and
+ * isn't replaced by the loading skeleton during that window — so if the chips read
+ * the selection from the URL/prop, a quick re-tap would toggle against stale state
+ * (e.g. re-select a tag instead of clearing it). Instead it mirrors the selected
+ * tag into local state, updates it on the same click that writes the URL, and
  * re-syncs from the URL when it changes for other reasons (a shared link, Back).
+ *
+ * Radio behaviour — at most one tag — is enforced in `FeedFilterPanel`; the state
+ * is still a list because that's the URL's shape (repeatable `tag` param).
  */
 export function FeedFilterBar() {
   const searchParams = useSearchParams()
