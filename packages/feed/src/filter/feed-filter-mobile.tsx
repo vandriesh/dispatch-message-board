@@ -17,63 +17,51 @@ import { useFilterQuery } from "./use-filter-query"
 const VISIBLE_TAGS = 3
 
 /**
- * Recency order (least-recent first). The selected tag is pulled to the most
- * recent slot so it always sits inside the visible window; with nothing selected
- * this is just the tag order, whose last three show by default. Used by the owning
- * `FeedSection` to seed the state it holds on this component's behalf.
- */
-export function initRecency(selected: Tag | null): Tag[] {
-  const base = [...TAGS]
-  return selected ? [...base.filter((t) => t !== selected), selected] : base
-}
-
-/**
  * The mobile filter (below `lg`). The desktop `FILTERS` rail costs too much
  * vertical space on a phone, so owner + date stay hidden behind a cog. Tags get a
- * quick single-select row: at most three chips, the most-recently-used ones, one
- * active at a time (tap the active chip to clear it). Selecting a tag that isn't
- * shown — from the cog panel, which lists all four — makes it active and slides
- * it into the row, evicting the least-recently-used so three remain.
+ * quick single-select row driven by `mobileTags` — a newest-first list of the
+ * tags picked so far (held by the owning `FeedSection`):
  *
- * Controlled: the open state and the recency order live in `FeedSection`, one
- * level *above* the filter-keyed `FeedClient`, so they survive its per-filter
- * remount — otherwise every pick would reset the window (chips would reshuffle).
- * The active filter itself lives in the query string (via `useFilterQuery`).
+ *   - the bar shows the first three of `mobileTags` — empty at first, so just the
+ *     cog until a tag is picked from the panel;
+ *   - picking a tag not yet in the list pushes it to the front and selects it, so
+ *     it lands leftmost and any fourth falls off the visible three;
+ *   - picking a tag already in the list just selects it, leaving the order alone.
+ *
+ * Controlled so the list and the open state survive `FeedClient`'s per-filter
+ * remount (see FeedSection). The active filter itself lives in the query string
+ * (via `useFilterQuery`).
  */
 export function FeedFilterMobile({
   value,
-  recency,
-  onRecencyChange,
+  mobileTags,
+  onMobileTagsChange,
   open,
   onOpenChange,
 }: {
   value: FeedFilters
-  recency: Tag[]
-  onRecencyChange: (next: Tag[]) => void
+  mobileTags: Tag[]
+  onMobileTagsChange: (next: Tag[]) => void
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const onFilterChange = useFilterQuery()
 
   const selected = value.tag?.[0] ?? null
-  const visible = recency.slice(-VISIBLE_TAGS)
+  const visible = mobileTags.slice(0, VISIBLE_TAGS)
 
   function selectTag(tag: Tag) {
-    if (tag === selected) {
-      onFilterChange({ tag: undefined }) // tapping the active tag clears it
-      return
-    }
-    // A hidden tag slides into the window (evicting the oldest); a tag already on
-    // screen just becomes active without reshuffling the row.
-    if (!visible.includes(tag)) {
-      onRecencyChange([...recency.filter((t) => t !== tag), tag])
+    // First time a tag is picked it joins the front of the list (pushing any
+    // fourth off the visible three); an already-listed tag just gets selected.
+    if (!mobileTags.includes(tag)) {
+      onMobileTagsChange([tag, ...mobileTags])
     }
     onFilterChange({ tag: [tag] })
   }
 
   return (
     <div className="flex shrink-0 flex-col lg:hidden">
-      {/* The bar: the recent-three tag chips on the left, cog on the right. */}
+      {/* The bar: the first three picked tags on the left (empty at first), cog right. */}
       <div className="flex items-center gap-2">
         <TagSelect
           tags={visible}

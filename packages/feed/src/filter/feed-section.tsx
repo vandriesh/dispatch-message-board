@@ -5,10 +5,10 @@ import * as React from "react"
 import { FeedClient } from "../feed-client"
 import { type FeedFilters, type FeedUser, type Tag } from "../message"
 import { type OwnedFeedPage } from "../rbac"
-import { FeedFilterMobile, initRecency } from "./feed-filter-mobile"
+import { FeedFilterMobile } from "./feed-filter-mobile"
 
 /**
- * Holds the mobile filter's persistent UI — the recency window and the cog's
+ * Holds the mobile filter's persistent UI — the `mobileTags` list and the cog's
  * open state — one level *above* `FeedClient`.
  *
  * `FeedClient` is remounted per filter set (its `key`) so a filter change resets
@@ -17,6 +17,10 @@ import { FeedFilterMobile, initRecency } from "./feed-filter-mobile"
  * chips would reshuffle and the panel would snap shut. Keeping that state here,
  * where nothing is keyed, lets it survive across selections; the filter is handed
  * it as controlled props.
+ *
+ * `mobileTags` starts empty — the bar shows only the cog until a tag is picked
+ * from the panel, at which point it's pushed to the front and the first three
+ * show (see FeedFilterMobile).
  */
 export function FeedSection({
   initialPage,
@@ -27,9 +31,7 @@ export function FeedSection({
   filters: FeedFilters
   currentUser: FeedUser
 }) {
-  const [recency, setRecency] = React.useState<Tag[]>(() =>
-    initRecency(filters.tag?.[0] ?? null)
-  )
+  const [mobileTags, setMobileTags] = React.useState<Tag[]>([])
   const [filtersOpen, setFiltersOpen] = React.useState(false)
 
   return (
@@ -41,8 +43,8 @@ export function FeedSection({
       mobileFilter={
         <FeedFilterMobile
           value={filters}
-          recency={recency}
-          onRecencyChange={setRecency}
+          mobileTags={mobileTags}
+          onMobileTagsChange={setMobileTags}
           open={filtersOpen}
           onOpenChange={setFiltersOpen}
         />
