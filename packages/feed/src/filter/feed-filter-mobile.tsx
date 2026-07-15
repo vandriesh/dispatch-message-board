@@ -26,7 +26,9 @@ const VISIBLE_TAGS = 3
  *     cog until a tag is picked from the panel;
  *   - picking a tag not yet in the list pushes it to the front and selects it, so
  *     it lands leftmost and any fourth falls off the visible three;
- *   - picking a tag already in the list just selects it, leaving the order alone.
+ *   - picking a tag already in the list just selects it, leaving the order alone;
+ *   - picking the tag that's already active unselects it (clears the filter),
+ *     leaving its chip in the list.
  *
  * Controlled so the list and the open state survive `FeedClient`'s per-filter
  * remount (see FeedSection). The active filter itself lives in the query string
@@ -51,6 +53,10 @@ export function FeedFilterMobile({
   const visible = mobileTags.slice(0, VISIBLE_TAGS)
 
   function selectTag(tag: Tag) {
+    if (tag === selected) {
+      onFilterChange({ tag: undefined }) // clicking the active tag unselects it
+      return
+    }
     // First time a tag is picked it joins the front of the list (pushing any
     // fourth off the visible three); an already-listed tag just gets selected.
     if (!mobileTags.includes(tag)) {
