@@ -174,3 +174,32 @@ so I guess we need to add delay to all this operations - in order to implement o
 ---
 
 rebase from origin/master
+
+---
+
+create a new branch - we need to fix mobile filter which is hidden by cog button (which toggle filter visibility - UNDER Compose component (pushes (animation) content down)
+
+on the left you can see current selected tags - as quick access of tags
+
+---
+
+make filters hidden by default for the mobile view
+
+---
+
+this Load More button should be *always* visible - and the remaining space be scrollable to fit remaining area 
+after placing post/Compose component filter row and load more at the bottom - the left space is for messages
+
+---
+
+The logic behind tags in the mobile view is to have a maximum of three buttons displayed 
+And we display the last three. 
+
+Every time when we select the fourth, we make only the fourth selected. The others are deselected. 
+But only two are present. The fourth is removed. 
+
+So it's like top three use tags, but only one can be selected.
+
+---
+
+rebase from fresh master
