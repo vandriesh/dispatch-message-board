@@ -67,14 +67,52 @@ export function FeedClient({
       : null
   const composeError = error?.target === "compose" ? error.message : null
 
+  // The scroll region the virtualizer measures. Owned here (the app shell), not by
+  // `Feed` — the list renders into this product-owned scroller rather than adding
+  // its own (B2, ADR-004). Held in state via a callback ref, not a ref object: the
+  // scroller is `Feed`'s parent, and a parent's ref attaches only after the child's
+  // layout effects run, so a ref object would be null when the virtualizer first
+  // measures. Setting state re-renders once the node exists so `Feed` receives it.
+  const [scrollEl, setScrollEl] = React.useState<HTMLDivElement | null>(null)
+
+  // Per-fetch page size, read by the query fn. Normally null → the server default
+  // (20) for LOAD MORE and auto-fetch; LOAD ALL bumps it to pull every remaining
+  // row in one request, then resets it. A ref (not state) so changing it doesn't
+  // re-run the query — only the next fetch reads it.
+  const pageSizeRef = React.useRef<number | null>(null)
+
   const query = useInfiniteQuery({
     queryKey: messagesKey(filters),
-    queryFn: ({ pageParam }) => fetchMessagesPage(filters, pageParam),
+    queryFn: ({ pageParam }) =>
+      fetchMessagesPage(filters, pageParam, pageSizeRef.current ?? undefined),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     initialData: { pages: [initialPage], pageParams: [null] },
     staleTime: 30_000,
+    // The cache is authoritative and mutated in place (ADR-005); a focus refetch
+    // would re-slice loaded pages with the default limit and drop LOAD ALL's rows
+    // (and any optimistic state), so don't.
+    refetchOnWindowFocus: false,
   })
+
+  // LOAD ALL — fill the list so the virtualization is demonstrable without 50
+  // LOAD MORE clicks. With the large page size this is one request; the loop only
+  // iterates if a small auto-fetch page was deduped in first.
+  const [isLoadingAll, setIsLoadingAll] = React.useState(false)
+  const onLoadAll = React.useCallback(async () => {
+    setIsLoadingAll(true)
+    pageSizeRef.current = 1000 // ≥ the store size: grabs all remaining in one page
+    try {
+      let more = query.hasNextPage
+      while (more) {
+        const res = await query.fetchNextPage()
+        more = res.hasNextPage
+      }
+    } finally {
+      pageSizeRef.current = null
+      setIsLoadingAll(false)
+    }
+  }, [query])
 
   const post = usePostMessage({ filters, currentUser, onError: onComposeError })
   const edit = useEditMessage({ filters, onError: onRowError })
@@ -102,12 +140,13 @@ export function FeedClient({
 
       {mobileFilter}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={setScrollEl} className="min-h-0 flex-1 overflow-y-auto">
         {rows.length === 0 ? (
           <FeedEmpty />
         ) : (
           <Feed
             data={rows}
+            scrollElement={scrollEl}
             rowError={rowError}
             onEdit={(id, body) => {
               setError(null)
@@ -117,16 +156,24 @@ export function FeedClient({
               setError(null)
               del.mutate(id)
             }}
+            hasNextPage={query.hasNextPage}
+            isFetchingNextPage={query.isFetchingNextPage}
+            onNeedMore={() => query.fetchNextPage()}
           />
         )}
       </div>
 
-      {query.hasNextPage && (
+      {/* Kept mounted whenever the feed has rows — even fully loaded — so the
+          disabled end-state tells the user they've reached the end (rather than
+          the control silently vanishing). */}
+      {rows.length > 0 && (
         <div className="flex shrink-0 justify-center pt-1">
           <LoadMore
             hasNextPage={query.hasNextPage}
             isFetchingNextPage={query.isFetchingNextPage}
+            isLoadingAll={isLoadingAll}
             onLoadMore={() => query.fetchNextPage()}
+            onLoadAll={onLoadAll}
           />
         </div>
       )}

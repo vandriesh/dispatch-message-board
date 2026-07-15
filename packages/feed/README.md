@@ -78,7 +78,7 @@ src/
                     #   postMessageSchema; forceFailure/forceDeleteFailure (the demo switches)
   latency.ts        # server-only: mockLatency() — one knob, ~1.2s, no-op under test
   composer.tsx      # "use client" — the 240-char composer; posts via onPost
-  feed.tsx          # "use client" — the list; branches each row on `owner`
+  feed.tsx          # "use client" — the virtualized list (react-virtual); branches each row on `owner`
   simple-card.tsx   # the resting card (chrome + actions slot); owner/default variants
   owner-message-card.tsx # "use client" — author's card: inline EditCard + two-step delete
   feed-empty.tsx    # empty state
@@ -87,7 +87,7 @@ src/
   feed-query.ts     # client-safe: query key + URL builder + page fetch (shared by list + mutations)
   feed-client.tsx   # "use client" — the container: useInfiniteQuery + the 3 optimistic mutations
   feed-mutations.ts # "use client" — usePostMessage/useEditMessage/useDeleteMessage (onMutate/onError)
-  load-more.tsx     # "use client" — thin LOAD MORE button over fetchNextPage
+  load-more.tsx     # "use client" — thin LOAD MORE / LOAD ALL buttons over fetchNextPage
 ```
 
 ## Mutations & the optimistic overlay (ADR-005)
@@ -107,10 +107,24 @@ Every write also lags ~1.2s (`mockLatency`) so the optimistic window — and the
 and the LOAD MORE loading label — are actually visible. It's a mock affordance; it goes with the
 mock store.
 
+## Pagination, auto-fetch & virtualization (ADR-004/006)
+
+`<Feed>` is virtualized with `@tanstack/react-virtual`: only the visible window plus overscan is
+in the DOM (~10–13 rows for 1000), rows are **dynamically measured** (`measureElement`) since a
+message wraps and an owner row grows in edit mode, and the scroll container is the app shell's
+own (`FeedClient` threads the element in via a state-backed callback ref — a parent ref object
+would be `null` when the virtualizer first measures). Three ways to advance the cursor, all over
+one `useInfiniteQuery`:
+
+- **`LOAD MORE`** — one page (the focusable, announceable baseline).
+- **auto-fetch** — when the virtualizer's last item reaches the end of the loaded array.
+- **`LOAD ALL`** — every remaining row in a single request, to demo the virtual list at 1000+
+  rows without 50 clicks.
+
+Once nothing's left to fetch, both buttons **stay rendered but disabled**, so the end of the
+feed reads as "you're caught up" rather than the control silently disappearing.
+
 ## What's deferred
 
-- **Auto-fetch + virtualization** — the `LOAD MORE` button (now `fetchNextPage`) works today;
-  auto-fetch-on-scroll and `@tanstack/react-virtual` over 1000+ rows ([ADR-004]/[ADR-006]) wrap
-  `<Feed>` without changing its shape.
 - **Mobile filter drawer** — filters stack above the feed on mobile; the design's `⚙` drawer is
   a later polish.
