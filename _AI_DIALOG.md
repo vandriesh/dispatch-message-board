@@ -140,3 +140,7 @@ I think we need to start planning the feed api endpoint - to return mocks payloa
 1. add create feed form (submit does nothing), tags are options from select - in the form, checkboxes behavior as  buttons in the filter area. 
 2. use classical approach to compose a container with  if loading -> LoadingState (use loading nextjs page ) is nothing - return empty data component, elese return <Feed data={feeds} /> (check /react-gradual-architecture for details
  3. filter persist the state in the url - separate component for ui -> calling external handler for filter { [field]: value(s) } .e.g { tag :  'product','design' }
+
+---
+
+default page - > we need to redirect to login
