@@ -203,3 +203,17 @@ So it's like top three use tags, but only one can be selected.
 ---
 
 rebase from fresh master
+
+---
+
+copied a prompt from tanstack,  add a Button - next to Load more - saying Load all. That will be easier to demo the virtual list;
+than:
+Build a TanStack Virtual experience for a TypeScript app. Use a headless virtualizer for a large list or grid, render only visible items plus overscan, support dynamic measurement where rows can change size, and keep the scroll container/markup owned by the product UI. Include smooth scrolling, sticky affordances where useful, and clear empty/loading states without replacing the app design system.
+
+---
+
+I think it's important to leave Load more/all buttons at the bottom (even disabled) - just to let know users that we loaded everything
+
+---
+
+no need to point "all 1000 loaded" - I had it covered in another branch

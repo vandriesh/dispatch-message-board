@@ -7,10 +7,11 @@ range — with the active filters reflected in the URL so any filtered view is s
 > **Project status: design system, login, and the full feed — read and write.** `@dmb/ui-kit`
 > (browse it at `/ui-kit`), `@dmb/auth`, and `@dmb/feed` are built: the faker-seeded mock store,
 > the `GET`/`POST`/`PATCH`/`DELETE` route handlers, and the feed/composer/filter UI at `/feed`,
-> now including **optimistic post/inline-edit/delete with rollback** (TanStack Query) and a
-> simulated latency that makes the loading skeleton real. Auto-fetch-on-scroll and virtualization
-> are next. See [_ARCHITECTURE.md](_ARCHITECTURE.md) for the decisions and
-> [_REQUIREMENTS.md](_REQUIREMENTS.md) for what's done.
+> now including **optimistic post/inline-edit/delete with rollback** (TanStack Query), a
+> simulated latency that makes the loading skeleton real, and a **virtualized list**
+> (`@tanstack/react-virtual`) with auto-fetch-on-scroll and a `LOAD ALL` button that fills the
+> feed to 1000+ rows in one request. See [_ARCHITECTURE.md](_ARCHITECTURE.md) for the decisions
+> and [_REQUIREMENTS.md](_REQUIREMENTS.md) for what's done.
 
 ## Getting started
 
@@ -74,9 +75,12 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
 - **The auth boundary is real even though auth is mocked.** Next 16's `proxy.ts` handles only
   the optimistic redirect; author-only edit/delete is enforced server-side in the route
   handler, where it can't be bypassed.
-- **`LOAD MORE` button as designed, with auto-fetch layered on top**, over cursor pagination
-  and a virtualized list for 1000+ entries. The button stays because it's the control keyboard
-  and screen-reader users can actually reach; auto-fetch is the enhancement, not the baseline.
+- **`LOAD MORE` button as designed, with auto-fetch layered on top** ([ADR-004](_ARCHITECTURE.md)),
+  over cursor pagination and a **virtualized list** (`@tanstack/react-virtual`, ~10–13 DOM rows
+  for 1000, dynamically measured) for 1000+ entries. The button stays because it's the control
+  keyboard and screen-reader users can actually reach; auto-fetch is the enhancement, not the
+  baseline. A **`LOAD ALL`** button beside it fills the whole feed in one request so the
+  virtualization is demonstrable without 50 clicks.
 - **Optimistic post/edit/delete with real rollback** ([ADR-005](_ARCHITECTURE.md)) — TanStack
   Query `onMutate`/`onError` over one client-owned list. A body with **`fail`** forces a write to
   fail, a stored **`keep`** forces a delete to fail; both roll back with an inline error. A mock

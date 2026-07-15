@@ -12,7 +12,9 @@ import {
 import { messagesStore } from "./store"
 
 const DEFAULT_LIMIT = 20
-const MAX_LIMIT = 100
+// The whole store fits in one page, so `LOAD ALL` (the virtualization demo) can
+// pull every remaining row in a single request instead of walking 50 cursors.
+const MAX_LIMIT = 1000
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 

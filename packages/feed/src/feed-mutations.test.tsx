@@ -13,6 +13,30 @@ import { type FeedUser } from "./message"
 import { type OwnedFeedPage } from "./rbac"
 
 /**
+ * The feed list is virtualized (`@tanstack/react-virtual`, B2), which reads real
+ * layout: jsdom has none, so without a viewport height the virtualizer renders an
+ * empty window and no row — optimistic or otherwise — is on screen. `virtual-core`
+ * measures both the scroll viewport and each row via `offsetHeight`/`offsetWidth`
+ * (jsdom hard-codes these to 0), so give every element a non-zero size and add a
+ * no-op ResizeObserver so a window actually paints. Scoped to this file (the only
+ * one that mounts the virtualized FeedClient); set at module load so
+ * `vi.unstubAllGlobals` in afterEach can't clear them mid-suite.
+ */
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+  configurable: true,
+  get: () => 800,
+})
+Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+  configurable: true,
+  get: () => 500,
+})
+
+/**
  * The highest-value test in the project (per _ARCHITECTURE.md's "Next steps"): the
  * optimistic-rollback path (B3, ADR-005). Not a render snapshot — the logic most
  * likely to break silently. We drive a post against a forced server failure and

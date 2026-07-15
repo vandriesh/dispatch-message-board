@@ -155,13 +155,30 @@ measurement (`measureElement`), not a fixed `estimateSize`.
 double-fetch. `useInfiniteQuery` dedupes in-flight requests, which is a large part of why
 ADR-006 takes it (below).
 
-**Status:** the **baseline `LOAD MORE` button is now implemented** (`@dmb/feed`'s `LoadMore`).
-The first page is server-rendered; the button picks up its `nextCursor` and fetches pages 2..n
-from `GET /api/messages` on click, appending to local state — and it's keyed on the active
-filters so a filter change resets the appended pages. Hand-rolled deliberately: pulling in
-TanStack Query + `useInfiniteQuery` for a single button isn't worth it yet. The **auto-fetch
-enhancement and virtualization are still pending** (ADR-006) — that's the point at which Query's
-in-flight dedupe starts earning its weight.
+**Status:** **fully implemented.** `LOAD MORE` (`@dmb/feed`'s `LoadMore`) drives
+`useInfiniteQuery.fetchNextPage` over the server-rendered first page (hydrated, not refetched);
+**auto-fetch-on-approach** and **virtualization** now layer on top in `Feed` via
+`@tanstack/react-virtual`. As the ADR predicted, the bottom `IntersectionObserver` sentinel is
+gone — the next page is triggered when the last item in `getVirtualItems()` reaches the end of
+the flattened array (`onNeedMore`). Rows are **dynamically measured** (`measureElement`): a
+message wraps to different heights and an owner row grows in edit mode, so `estimateSize` is
+only the first-paint guess. Both trigger paths share one `useInfiniteQuery`, so Query's
+in-flight dedupe (the ADR-006 justification) now earns its weight.
+
+**`LOAD ALL` (added for the demo).** Beside `LOAD MORE`, a `LOAD ALL` button pulls every
+remaining row in a **single** request (page size bumped to ≥ the store size via a `pageSizeRef`
+the query fn reads; `MAX_LIMIT` raised to 1000) rather than walking ~50 cursors at 20/page
+through the 1.2s mock latency. It exists to make the 1000-row virtualization demonstrable in one
+click — the whole point of B2 — without 50 clicks or a minute of waiting.
+
+**Gotcha that cost real time (worth recording):** the virtualizer lives in `Feed`, but the
+scroll container is owned by its parent `FeedClient` (the app shell). A **parent's ref is
+attached only *after* its children's layout effects run**, so passing the scroller as a `ref`
+object left the virtualizer reading `null` at mount — `scrollRect` stuck at `0×0`, zero rows
+rendered, and nothing re-rendered it afterward (it looked like an empty feed under a correctly
+sized scrollbar). Fix: the scroller is held in **state via a callback ref** (`setScrollEl`) and
+the *element* is threaded to `Feed`; setting state re-renders once the node exists, and the
+virtualizer picks it up. A ref object only works when the virtualizer owns the scroller itself.
 
 ### ADR-005 — Optimistic UI with real rollback — Accepted
 Post/edit/delete (B3) apply immediately against the TanStack Query cache, then reconcile with
@@ -231,8 +248,11 @@ job: Query owns the data, Virtual owns the rows.
 (mounted in the root layout); `FeedClient` runs the `useInfiniteQuery` with the SSR first page
 handed in as `initialData` (hydrated, not refetched — Q1) and the LOAD MORE button reduced to
 `fetchNextPage`. The `onMutate`/`onError` rollback is the second of the three justifications,
-delivered. Still pending: auto-fetch-on-scroll and `@tanstack/react-virtual` (the first
-justification, dedupe, only fully earns out once both trigger paths exist).
+delivered. **`@tanstack/react-virtual` is now paired in (ADR-004):** the two trigger paths
+(button + auto-fetch on the virtualizer's last item) both drive the single query, so the
+in-flight dedupe — the first justification — now earns out. `refetchOnWindowFocus` is disabled:
+the cache is authoritative and mutated in place, and a focus refetch would re-slice loaded pages
+with the default limit (dropping `LOAD ALL`'s rows and any optimistic state).
 
 ### ADR-007 — Styling: Tailwind v4 + tokens *measured* from the design — Accepted
 Tailwind v4 is kept from the scaffold. Tokens are defined in `app/globals.css` under `@theme`,

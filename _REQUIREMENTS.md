@@ -28,7 +28,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 | F7 | Feed can be filtered by **user**. | Done — endpoint + URL-driven owner dropdown (single-select, "All users" clears; per the design) |
 | F8 | Only the **author** can inline-edit their own message. | Done — `OwnerMessageCard`'s inline `EditCard` (body-only) via `PATCH /api/messages/[id]`, optimistic + rollback; the `owner` flag (rbac) shows EDIT only on your own rows, author re-checked in the store (403 otherwise) |
 | F9 | Only the **author** can delete their own message. | Done — two-step delete confirm → optimistic `DELETE /api/messages/[id]`; `owner`-gated affordance, author enforced server-side |
-| F10 | Feed supports **pagination or infinite scroll** (either is acceptable). | `LOAD MORE` now drives `useInfiniteQuery.fetchNextPage` (ADR-005/006); cursor endpoint unchanged. Auto-fetch-on-scroll + virtualization still pending |
+| F10 | Feed supports **pagination or infinite scroll** (either is acceptable). | Done — `LOAD MORE` drives `useInfiniteQuery.fetchNextPage`; auto-fetch-on-scroll rides the virtualizer's last item (ADR-004), and the list is virtualized (B2). `LOAD ALL` pulls every remaining row in one request to demo the virtual list |
 | F11 | Feed has **loading** and **empty** states. | Done — `app/feed/loading.tsx` (streaming) + `<FeedEmpty>`; the skeleton is now actually visible because the SSR fetch awaits a mock latency (ADR-005) |
 | F12 | Layout is **responsive** (mobile + desktop). | Desktop 2-col grid done (measured: 296px rail + feed, 1120 max, gap/padding 32). Mobile stacks to one column, no overflow; the design's `⚙` filter drawer is a later polish |
 | F13 | Active filters (tag/date/user) are **reflected in the URL**, so filtered views are shareable/bookmarkable. | Done — filters are the URL (ADR-002); verified cold-load hydration |
@@ -57,7 +57,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 | ID | Item | Status |
 |----|------|--------|
 | B1 | At least one test (e.g. a component or hook test). | Done — login flow (RTL + MSW v2, ADR-011) **and** the optimistic post rollback (`feed-mutations.test.tsx`: row appears → rolls back → error surfaces) |
-| B2 | List virtualization for the feed — smooth interaction at **1000+ entries**. | Not started |
+| B2 | List virtualization for the feed — smooth interaction at **1000+ entries**. | Done — `@tanstack/react-virtual` in `Feed` (ADR-004/006): windowed render (~10–13 DOM rows for 1000), dynamic `measureElement` (rows wrap / grow in edit), overscan, product-owned scroller. `LOAD ALL` fills the list in one request to demo it |
 | B3 | Optimistic UI for post/edit/delete, **with rollback on simulated failure**. | Done — TanStack Query `onMutate`/`onError` (ADR-005). `fail` forces a write failure, `keep` forces a delete failure; both roll back with an inline error |
 | B4 | Actual **route handlers** for mocked data/requests — shows how contracts with backend are established. Called out in the brief as a bonus. | Done for the feed — `GET /api/messages` with cursor pagination + filters (ADR-012) |
 
