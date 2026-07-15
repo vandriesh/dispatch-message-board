@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // @dmb/ui-kit ships TypeScript source, not a build artifact — Next compiles it
-  // with the app so the package needs no build step of its own.
-  transpilePackages: ["@dmb/ui-kit"],
+  // The @dmb/* workspaces ship TypeScript source, not build artifacts — Next
+  // compiles them with the app, so they need no build step of their own.
+  transpilePackages: ["@dmb/ui-kit", "@dmb/auth"],
 };
 
 export default nextConfig;

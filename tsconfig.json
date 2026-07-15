@@ -21,7 +21,9 @@
     "paths": {
       "@/*": ["./*"],
       "@dmb/ui-kit": ["./packages/ui-kit/src/index.ts"],
-      "@dmb/ui-kit/*": ["./packages/ui-kit/src/*"]
+      "@dmb/ui-kit/*": ["./packages/ui-kit/src/*"],
+      "@dmb/auth": ["./packages/auth/src/index.ts"],
+      "@dmb/auth/*": ["./packages/auth/src/*"]
     }
   },
   "include": [

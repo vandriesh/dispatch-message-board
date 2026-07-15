@@ -1,0 +1,19 @@
+{
+  "name": "@dmb/auth",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dispatch auth feature — login form, validation schema, session contract. Framework-agnostic.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "zod": "^4.1.13"
+  },
+  "peerDependencies": {
+    "@dmb/ui-kit": "*",
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}
