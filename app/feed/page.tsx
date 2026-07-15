@@ -14,6 +14,7 @@ import {
 import { getMessages, mockLatency } from "@dmb/feed/server"
 
 import { FeedFilterBar } from "./feed-filter-bar"
+import { FeedFilterMobile } from "./feed-filter-mobile"
 
 export const metadata: Metadata = {
   title: "Feed — Dispatch",
@@ -49,10 +50,18 @@ function parseFilters(sp: SearchParams): FeedFilters {
  * flag (rbac) at this boundary — the one place with the session — so the store
  * stays viewer-agnostic and the client never re-derives ownership. Pages 2..n get
  * the same stamp in the `/api/messages` route. A mock latency runs first so the
- * streaming skeleton (app/feed/loading.tsx) is actually seen (F11, ADR-005).
- *
- * The owner-stamped first page, the filters, and the logged-in user are handed to
+ * streaming skeleton (app/feed/loading.tsx) is actually seen (F11, ADR-005). The
+ * owner-stamped first page, the filters, and the logged-in user are handed to
  * `FeedClient`, which owns the query cache and the optimistic post/edit/delete.
+ *
+ * The page is an app shell: `main` is exactly the viewport minus the top bar and
+ * never itself scrolls. `FeedClient` lays out its column so the composer (and,
+ * below `lg`, the mobile filter passed in as `mobileFilter`) stay pinned at the
+ * top, the messages scroll in the space that's left, and LOAD MORE is parked at
+ * the bottom. Desktop keeps the two-column layout — the FILTERS rail (296px) at
+ * left, the shell at right; below `lg` it is a single column and the rail
+ * collapses into the cog panel. `FeedClient` is remounted per filter set so a
+ * filter change resets the query cache and optimistic state (ADR-004).
  */
 export default async function FeedPage({
   searchParams,
@@ -72,16 +81,21 @@ export default async function FeedPage({
   const currentUser = userFromIdentity(session)
 
   return (
-    <main className="mx-auto grid w-full max-w-[1120px] grid-cols-1 gap-8 p-4 lg:grid-cols-[296px_1fr] lg:p-8">
-      <FeedFilterBar value={filters} />
+    <main className="mx-auto flex h-[calc(100dvh-60px)] w-full max-w-[1120px] flex-col gap-8 overflow-hidden p-4 sm:h-[calc(100dvh-72px)] lg:flex-row lg:p-8">
+      {/* Desktop rail; hidden below lg, where the cog panel under the composer
+          takes over (F5–F7 on mobile). */}
+      <div className="hidden lg:block lg:w-[296px] lg:shrink-0">
+        <FeedFilterBar value={filters} />
+      </div>
 
-      <section className="flex min-w-0 flex-col gap-4">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
         {/* Remounted per filter set so a filter change resets query + optimistic state. */}
         <FeedClient
           key={JSON.stringify(filters)}
           initialPage={initialPage}
           filters={filters}
           currentUser={currentUser}
+          mobileFilter={<FeedFilterMobile value={filters} />}
         />
       </section>
     </main>

@@ -1,5 +1,6 @@
 "use client"
 
+import { type ReactNode } from "react"
 import {
   Badge,
   Input,
@@ -8,6 +9,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  cn,
 } from "@dmb/ui-kit"
 
 import { TAGS, USERS, type FeedFilters, type Tag } from "./message"
@@ -16,19 +18,19 @@ import { TAGS, USERS, type FeedFilters, type Tag } from "./message"
 // the owner filter rather than filtering to a user named "all".
 const ALL_USERS = "all"
 
+/** The patch that resets every filter. */
+export const CLEARED_FILTERS: Partial<FeedFilters> = {
+  tag: undefined,
+  user: undefined,
+  from: undefined,
+  to: undefined,
+}
+
 /**
- * The filter sidebar (F5/F6/F7) — presentational, laid out to the reference
- * design's desktop `FILTERS` rail: a borderless column on the gray page, with a
- * `clear` affordance, tag chips, a user dropdown, and a stacked date range. It
- * reports changes through `onFilterChange({ [field]: values })` and knows nothing
- * about the URL — that lives in the container (app/feed/feed-filter-bar.tsx),
- * the same seam @dmb/auth uses to keep `next/*` out of the feature package.
- *
- * Tags stay multi-select (checkboxes that read as buttons — the accent-filled
- * `Badge` is the pressed state); the owner filter is a single-select dropdown per
- * the design.
+ * The tag chips (F5) — multi-select, the accent-filled `Badge` is the pressed
+ * state. Used on the desktop rail, where any number of tags can be active.
  */
-export function FeedFilterPanel({
+function TagFilter({
   value,
   onFilterChange,
 }: {
@@ -36,7 +38,6 @@ export function FeedFilterPanel({
   onFilterChange: (patch: Partial<FeedFilters>) => void
 }) {
   const selectedTags = value.tag ?? []
-  const currentUser = value.user?.[0] ?? ALL_USERS
 
   function toggleTag(tag: Tag) {
     const next = selectedTags.includes(tag)
@@ -45,47 +46,84 @@ export function FeedFilterPanel({
     onFilterChange({ tag: next.length > 0 ? next : undefined })
   }
 
-  function clearAll() {
-    onFilterChange({ tag: undefined, user: undefined, from: undefined, to: undefined })
-  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {TAGS.map((tag) => {
+        const selected = selectedTags.includes(tag)
+        return (
+          <Badge
+            key={tag}
+            variant={selected ? "default" : "outline"}
+            render={
+              <button
+                type="button"
+                aria-pressed={selected}
+                onClick={() => toggleTag(tag)}
+              />
+            }
+          >
+            {tag}
+          </Badge>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Single-select tag chips (mobile, F5) — presentational. Unlike the multi-select
+ * `TagFilter` on the desktop rail, exactly one tag is active at a time; tapping
+ * the active one clears it. The caller owns which tags to render (the mobile bar
+ * shows the recent few, the cog panel shows all) and the selection/MRU logic.
+ */
+export function TagSelect({
+  tags,
+  selected,
+  onSelect,
+  className,
+}: {
+  tags: readonly Tag[]
+  selected: Tag | null
+  onSelect: (tag: Tag) => void
+  className?: string
+}) {
+  return (
+    <div className={cn("flex flex-wrap gap-2", className)}>
+      {tags.map((tag) => (
+        <Badge
+          key={tag}
+          variant={selected === tag ? "default" : "outline"}
+          render={
+            <button
+              type="button"
+              aria-pressed={selected === tag}
+              onClick={() => onSelect(tag)}
+            />
+          }
+        >
+          {tag}
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The owner dropdown (F7) and date range (F6) — the filters that don't collapse
+ * to a chip. On mobile these live behind the cog; on desktop they sit under the
+ * tags in the rail.
+ */
+export function UserDateFilter({
+  value,
+  onFilterChange,
+}: {
+  value: FeedFilters
+  onFilterChange: (patch: Partial<FeedFilters>) => void
+}) {
+  const currentUser = value.user?.[0] ?? ALL_USERS
 
   return (
-    <aside className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h2 className="font-mono text-[13px] font-bold tracking-[0.1em]">FILTERS</h2>
-        <button
-          type="button"
-          onClick={clearAll}
-          className="cursor-pointer text-[12px] text-muted-foreground underline"
-        >
-          clear
-        </button>
-      </div>
-
-      <div>
-        <FilterLabel>Tag</FilterLabel>
-        <div className="flex flex-wrap gap-2">
-          {TAGS.map((tag) => {
-            const selected = selectedTags.includes(tag)
-            return (
-              <Badge
-                key={tag}
-                variant={selected ? "default" : "outline"}
-                render={
-                  <button
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => toggleTag(tag)}
-                  />
-                }
-              >
-                {tag}
-              </Badge>
-            )
-          })}
-        </div>
-      </div>
-
+    <>
       <div>
         <FilterLabel>User</FilterLabel>
         <Select
@@ -138,11 +176,59 @@ export function FeedFilterPanel({
           />
         </div>
       </div>
+    </>
+  )
+}
+
+/**
+ * The filter sidebar (F5/F6/F7) — presentational, laid out to the reference
+ * design's desktop `FILTERS` rail: a borderless column on the gray page, with a
+ * `clear` affordance, tag chips, a user dropdown, and a stacked date range. It
+ * reports changes through `onFilterChange({ [field]: values })` and knows nothing
+ * about the URL — that lives in the container (app/feed/feed-filter-bar.tsx),
+ * the same seam @dmb/auth uses to keep `next/*` out of the feature package.
+ *
+ * It composes `TagFilter` and `UserDateFilter`; the mobile layout reuses those
+ * two pieces directly around a cog toggle (app/feed/feed-filter-mobile.tsx).
+ */
+export function FeedFilterPanel({
+  value,
+  onFilterChange,
+}: {
+  value: FeedFilters
+  onFilterChange: (patch: Partial<FeedFilters>) => void
+}) {
+  return (
+    <aside className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <h2 className="font-mono text-[13px] font-bold tracking-[0.1em]">FILTERS</h2>
+        <ClearButton onClick={() => onFilterChange(CLEARED_FILTERS)} />
+      </div>
+
+      <div>
+        <FilterLabel>Tag</FilterLabel>
+        <TagFilter value={value} onFilterChange={onFilterChange} />
+      </div>
+
+      <UserDateFilter value={value} onFilterChange={onFilterChange} />
     </aside>
   )
 }
 
-function FilterLabel({ children }: { children: React.ReactNode }) {
+/** The `clear` link — shared by the desktop rail header and the mobile panel. */
+export function ClearButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="cursor-pointer text-[12px] text-muted-foreground underline"
+    >
+      clear
+    </button>
+  )
+}
+
+function FilterLabel({ children }: { children: ReactNode }) {
   return (
     <div className="mb-[10px] font-mono text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
       {children}

@@ -32,6 +32,13 @@ export {
 } from "./rbac"
 
 // Feature UI. `FeedClient` is the container (query + optimistic mutations); it
-// composes the composer, feed list, and LOAD MORE internally.
+// composes the composer, feed list, and LOAD MORE internally, and takes the
+// mobile filter as a slot so the app-shell can pin it under the composer.
 export { FeedClient } from "./feed-client"
-export { FeedFilterPanel } from "./feed-filters"
+export {
+  ClearButton,
+  CLEARED_FILTERS,
+  FeedFilterPanel,
+  TagSelect,
+  UserDateFilter,
+} from "./feed-filters"

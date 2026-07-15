@@ -30,10 +30,14 @@ export function FeedClient({
   initialPage,
   filters,
   currentUser,
+  mobileFilter,
 }: {
   initialPage: OwnedFeedPage
   filters: FeedFilters
   currentUser: FeedUser
+  /** The mobile cog filter (app-supplied, URL-aware), pinned under the composer
+   * below `lg`. Passed in as an element so the package stays free of `next/*`. */
+  mobileFilter?: React.ReactNode
 }) {
   // A single active error, tagged with where it belongs — the composer (a failed
   // post, whose optimistic row has already rolled back) or a specific row (a failed
@@ -78,40 +82,54 @@ export function FeedClient({
 
   const rows = (query.data?.pages.flatMap((page) => page.items) ?? []) as FeedRow[]
 
+  // App shell: the composer and the mobile filter stay pinned at the top, the
+  // messages scroll in the space that's left, and LOAD MORE is parked at the
+  // bottom. The parent `<section>` is a bounded-height flex column, so these are
+  // its direct flex children (the fragment adds no box).
   return (
     <>
-      <Composer
-        error={composeError}
-        restore={rejectedDraft}
-        onPost={(draft) => {
-          setError(null)
-          setRejectedDraft(null)
-          post.mutate(draft)
-        }}
-      />
-
-      {rows.length === 0 ? (
-        <FeedEmpty />
-      ) : (
-        <Feed
-          data={rows}
-          rowError={rowError}
-          onEdit={(id, body) => {
+      <div className="shrink-0">
+        <Composer
+          error={composeError}
+          restore={rejectedDraft}
+          onPost={(draft) => {
             setError(null)
-            edit.mutate({ id, body })
-          }}
-          onDelete={(id) => {
-            setError(null)
-            del.mutate(id)
+            setRejectedDraft(null)
+            post.mutate(draft)
           }}
         />
-      )}
+      </div>
 
-      <LoadMore
-        hasNextPage={query.hasNextPage}
-        isFetchingNextPage={query.isFetchingNextPage}
-        onLoadMore={() => query.fetchNextPage()}
-      />
+      {mobileFilter}
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {rows.length === 0 ? (
+          <FeedEmpty />
+        ) : (
+          <Feed
+            data={rows}
+            rowError={rowError}
+            onEdit={(id, body) => {
+              setError(null)
+              edit.mutate({ id, body })
+            }}
+            onDelete={(id) => {
+              setError(null)
+              del.mutate(id)
+            }}
+          />
+        )}
+      </div>
+
+      {query.hasNextPage && (
+        <div className="flex shrink-0 justify-center pt-1">
+          <LoadMore
+            hasNextPage={query.hasNextPage}
+            isFetchingNextPage={query.isFetchingNextPage}
+            onLoadMore={() => query.fetchNextPage()}
+          />
+        </div>
+      )}
     </>
   )
 }
