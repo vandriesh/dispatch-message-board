@@ -1,5 +1,6 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 import {
@@ -33,5 +34,7 @@ export async function loginAction(
   if (!user) return { formError: INVALID_CREDENTIALS }
 
   await createSession(user)
+  // Refresh the root layout so its session-gated top bar appears on redirect.
+  revalidatePath("/", "layout")
   redirect("/feed")
 }

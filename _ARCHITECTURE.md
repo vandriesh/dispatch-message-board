@@ -29,10 +29,13 @@ hierarchy with one file per abstraction on day one. The binding rules are writte
 
 ```
 app/                         # Next.js router surface ONLY — thin; wires, doesn't implement
-  layout.tsx                 # shell, fonts, providers
+  layout.tsx                 # root shell, fonts — renders the top bar iff a session exists (ADR-012)
   page.tsx                   # → redirect to /feed
-  login/page.tsx             # F1 — renders features/auth
-  feed/page.tsx              # F4 — resolves searchParams, renders features/messages
+  (auth)/login/page.tsx      # F1 — renders @dmb/auth
+  (auth)/session.ts          # cookie session read/write (ADR-003)
+  (auth)/login/actions.ts    # login server action; revalidates the root layout
+  (auth)/logout/actions.ts   # LOG OUT server action; revalidates the root layout
+  feed/page.tsx              # F4 — resolves searchParams, renders @dmb/messages; guards its own session
   api/
     messages/route.ts        # GET (cursor-paginated, filtered), POST      — B4
     messages/[id]/route.ts   # PATCH, DELETE (author-only)                 — B4
@@ -333,6 +336,44 @@ on the second use" rule means shared code is discovered rather than guessed at.
 
 **Cost:** requires judgment rather than a rule a linter can enforce, so it needs to be
 restated in review. That's why it's in `CLAUDE.md` and not just here.
+
+### ADR-012 — The signed-in top bar lives in the root layout, gated on the session — Accepted
+The top bar — brand, the signed-in user's avatar + handle, `LOG OUT` — is rendered by the root
+`app/layout.tsx`, but only when `getSession()` returns a user: `{session && <TopBar …/>}`.
+Logged-out surfaces (`/login`) render without it; any page reached with a session shows it.
+
+**Why the root layout, not a route-group shell.** An earlier revision scoped the bar to an
+`(app)` route group so the chrome sat only over authenticated routes. We collapsed that: the
+rule "the bar appears whenever there's a session" is simpler stated once in the root layout than
+encoded as a folder boundary, and it drops a layout file and a group wrapper. The cost is that
+reading the cookie in the root layout opts the whole tree into dynamic rendering — acceptable
+here (every page is already dynamic or trivial), and the explicit trade we chose.
+
+**The staleness that this design has to answer.** A root layout is **preserved across
+navigation**, so it will not re-read the cookie on its own when a Server Action changes the
+session. Both auth actions therefore call `revalidatePath("/", "layout")` before redirecting —
+`loginAction` so the bar *appears* on the `/feed` redirect, `logoutAction` so it *disappears* on
+the `/login` redirect. Without that call the bar would lag a navigation behind the real session
+state. (Verified in-browser: login→bar present, logout→bar gone, neither needing a reload.)
+
+**Guarding moved back to the page.** With no shared authenticated layout, each protected page
+owns its guard again; `feed/page.tsx` redirects to `/login` when there's no session. ADR-003's
+`proxy.ts` remains the optimistic fast path.
+
+**Kept inline, not extracted (ADR-008).** `TopBar` is a local function in `layout.tsx`, not a
+separate module — one consumer, and it composes `@dmb/ui-kit` primitives (`Avatar`, `Button`,
+`Popover`, `Separator`). `SessionUser` is still just `{ id, email }`; the avatar initial and
+`@handle` are derived from the email local-part until the messages feature introduces a real
+display name where an author is actually rendered.
+
+**Responsive: the mobile bar folds identity into the avatar.** At the reference's 390px the bar
+has no room for the handle beside a `LOG OUT` button, so below `sm` both are hidden and the
+avatar becomes the trigger for a `Popover` menu — *Logged as: {email}* / `LOG OUT`. The desktop
+layout (handle + visible button) is unchanged. Two CSS-toggled variants (`hidden sm:flex` /
+`sm:hidden`) rather than one adaptive control: the desktop button and the mobile menu are
+different affordances, and a plain `hidden` swap is cheaper to reason about than branching a
+single component on viewport. The bar's own dimensions also step down (72→60px tall, 32→18px
+pad, 22→18px brand) to match the mobile spec.
 
 ---
 

@@ -107,3 +107,20 @@ on server side we also would need to validate payload
 ---
 
 the idea is to have validation on both sides - client - to save the BE from bad payload  - and BE to save from direct "hits/attacks"
+
+---
+
+I need to add app root layout (next.js) for holding top bar with avatar of logged use + logout button
+check https://y8lj2w.csb.app/ in the browser for guidance
+
+---
+
+I think the root layout should check if we have the session, then we should include in the top bar.
+move the feed page back, remove (app) "grouper" - we don't need it
+
+---
+
+now we need to adjsut layout for mobile view - hide user name - leave only "logo" and avatar - which now is a menu to show :
+Logged as: ${user}
+---
+LOG OUT

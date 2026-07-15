@@ -19,7 +19,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| F1 | Users can log in. Users are mocked/pre-created — **no sign-up flow**. | Form + validation done (`@dmb/auth`); awaiting the real `POST /api/session` |
+| F1 | Users can log in. Users are mocked/pre-created — **no sign-up flow**. | Form + validation done (`@dmb/auth`); session-gated top bar + `LOG OUT` in the root layout land the login→feed→logout loop (ADR-012); awaiting the real `POST /api/session` |
 | F2 | Authenticated users can post short messages, **max 240 characters**. | Not started |
 | F3 | A message carries a **tag** (category), assigned at post time. | Not started |
 | F4 | All messages are visible on a Message Page (the feed). | Not started |

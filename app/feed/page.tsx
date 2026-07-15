@@ -1,9 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { Button } from "@dmb/ui-kit"
 
-import { getSession } from "../(auth)/session"
-import { logoutAction } from "../(auth)/logout/actions"
+import { getSession } from "@/app/(auth)/session"
 
 export const metadata: Metadata = {
   title: "Feed — Dispatch",
@@ -14,8 +12,10 @@ export const metadata: Metadata = {
  * login → redirect here → greeted by name → log out → back to /login — but the
  * feed itself, its filters, and the composer land with the backend (ADR-001).
  *
- * The `!session` guard here is a stopgap; the real optimistic redirect belongs
- * in proxy.ts (ADR-003), which is not built yet.
+ * The top bar (brand, avatar, LOG OUT) is rendered by the root layout whenever a
+ * session exists (ADR-012). Auth-guarding is this page's own job: no shared
+ * authenticated layout sits above it, so the `!session` redirect below is the
+ * real gate, not just type-narrowing.
  */
 export default async function FeedPage() {
   const session = await getSession()
@@ -23,17 +23,6 @@ export default async function FeedPage() {
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[13px] font-bold tracking-[0.16em] uppercase">
-          ◆ Dispatch
-        </span>
-        <form action={logoutAction}>
-          <Button type="submit" variant="outline" size="sm">
-            LOG OUT
-          </Button>
-        </form>
-      </div>
-
       <div className="flex flex-col gap-2">
         <h1 className="font-sans text-4xl font-bold tracking-tight">
           Welcome {session.email}

@@ -95,6 +95,13 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
   bad payloads and gives instant feedback; the Server Action re-validates the same `loginSchema`
   because a direct hit never runs the client. One schema, one error-mapping — no drift. See
   [ADR-003](_ARCHITECTURE.md).
+- **The signed-in top bar lives in the root layout, gated on the session.** `app/layout.tsx`
+  reads the session and renders the bar (brand, avatar, `LOG OUT`, built from `@dmb/ui-kit`)
+  only when one exists — so `/login` has no bar. Because a root layout is preserved across
+  navigation, the login/logout Server Actions call `revalidatePath("/", "layout")` so the bar
+  appears/disappears on the transition rather than a navigation late. On mobile the bar slims
+  down and folds the handle + `LOG OUT` into a `Popover` menu behind the avatar. See
+  [ADR-012](_ARCHITECTURE.md).
 - **Design tokens are measured, not assumed.** Every value came from `getComputedStyle` on the
   reference design. Its prose claims a uniform "3px border, 6px shadow"; the rendered CSS
   actually *scales* both with control size, and shadows appear only at ≥42px. The pixels won.
