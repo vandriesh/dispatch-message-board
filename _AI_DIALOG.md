@@ -237,3 +237,7 @@ let's palce pagination right under the list - right aligned
 ---
 
 now rebase from main
+
+---
+
+mobile filter should be initialised with tag from url

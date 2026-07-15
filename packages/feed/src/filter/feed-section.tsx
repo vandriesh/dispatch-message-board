@@ -18,9 +18,10 @@ import { FeedFilterMobile } from "./feed-filter-mobile"
  * where nothing is keyed, lets it survive across selections; the filter is handed
  * it as controlled props.
  *
- * `mobileTags` starts empty — the bar shows only the cog until a tag is picked
- * from the panel, at which point it's pushed to the front and the first three
- * show (see FeedFilterMobile).
+ * `mobileTags` seeds from the URL's active tag, so a shared or bookmarked
+ * `?tag=` link shows that chip in the bar on load (highlighted) rather than just
+ * the cog. It's empty only when the URL carries no tag; from there each pick is
+ * pushed to the front and the first three show (see FeedFilterMobile).
  *
  * The active tag is held here too, optimistically. `FeedFilterMobile` lives inside
  * the keyed `FeedClient`, so it can't hold its own optimistic selection across the
@@ -38,7 +39,7 @@ export function FeedSection({
   filters: FeedFilters
   currentUser: FeedUser
 }) {
-  const [mobileTags, setMobileTags] = React.useState<Tag[]>([])
+  const [mobileTags, setMobileTags] = React.useState<Tag[]>(filters.tag ?? [])
   const [filtersOpen, setFiltersOpen] = React.useState(false)
 
   const committedTag = filters.tag?.[0] ?? null
