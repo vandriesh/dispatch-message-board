@@ -23,7 +23,10 @@
       "@dmb/ui-kit": ["./packages/ui-kit/src/index.ts"],
       "@dmb/ui-kit/*": ["./packages/ui-kit/src/*"],
       "@dmb/auth": ["./packages/auth/src/index.ts"],
-      "@dmb/auth/*": ["./packages/auth/src/*"]
+      "@dmb/auth/*": ["./packages/auth/src/*"],
+      "@dmb/feed": ["./packages/feed/src/index.ts"],
+      "@dmb/feed/server": ["./packages/feed/src/server.ts"],
+      "@dmb/feed/*": ["./packages/feed/src/*"]
     }
   },
   "include": [

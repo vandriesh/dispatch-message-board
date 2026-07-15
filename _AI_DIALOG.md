@@ -124,3 +124,19 @@ now we need to adjsut layout for mobile view - hide user name - leave only "logo
 Logged as: ${user}
 ---
 LOG OUT
+
+---
+
+I think we need to start planning the feed api endpoint - to return mocks payload
+
+1. "db" has 1k records for 3 user - adam,eva,snake all with @dispatch.dev emails 
+2. you can use fakerjs to mimic posts <240 length and assign randomly at server's start (it should be persisted during server live - also add createdBy : `u_${name}` // const [name] = email.split('@');
+3. check existing docs to create the feed model - the domain knowledge should be kept in the @dmb/feed package
+4. keep in mind we will use pagination (1st load 1st page ) than on click/scroll we should loand next page
+5. filtering - params peristed in the  URL (by name (owner)/date/tags
+
+---
+
+1. add create feed form (submit does nothing), tags are options from select - in the form, checkboxes behavior as  buttons in the filter area. 
+2. use classical approach to compose a container with  if loading -> LoadingState (use loading nextjs page ) is nothing - return empty data component, elese return <Feed data={feeds} /> (check /react-gradual-architecture for details
+ 3. filter persist the state in the url - separate component for ui -> calling external handler for filter { [field]: value(s) } .e.g { tag :  'product','design' }

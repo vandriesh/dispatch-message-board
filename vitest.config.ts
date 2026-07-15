@@ -21,6 +21,9 @@ export default defineConfig({
       { find: /^@dmb\/ui-kit\//, replacement: `${pkg("ui-kit")}/` },
       { find: /^@dmb\/auth$/, replacement: `${pkg("auth")}/index.ts` },
       { find: /^@dmb\/auth\//, replacement: `${pkg("auth")}/` },
+      { find: /^@dmb\/feed$/, replacement: `${pkg("feed")}/index.ts` },
+      { find: /^@dmb\/feed\/server$/, replacement: `${pkg("feed")}/server.ts` },
+      { find: /^@dmb\/feed\//, replacement: `${pkg("feed")}/` },
     ],
   },
   test: {

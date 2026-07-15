@@ -1,0 +1,22 @@
+{
+  "name": "@dmb/feed",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dispatch feed feature — the message model, the mock store, cursor pagination, and the composer/filter/feed UI. Domain lives here; next/* lives in app/.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@faker-js/faker": "^9.3.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.1.13"
+  },
+  "peerDependencies": {
+    "@dmb/ui-kit": "*",
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

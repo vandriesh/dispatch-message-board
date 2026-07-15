@@ -35,7 +35,7 @@ app/                         # Next.js router surface ONLY — thin; wires, does
   (auth)/session.ts          # cookie session read/write (ADR-003)
   (auth)/login/actions.ts    # login server action; revalidates the root layout
   (auth)/logout/actions.ts   # LOG OUT server action; revalidates the root layout
-  feed/page.tsx              # F4 — resolves searchParams, renders @dmb/messages; guards its own session
+  feed/page.tsx              # F4 — resolves searchParams, renders @dmb/feed; guards its own session
   api/
     messages/route.ts        # GET (cursor-paginated, filtered), POST      — B4
     messages/[id]/route.ts   # PATCH, DELETE (author-only)                 — B4
@@ -51,7 +51,7 @@ packages/                    # the domain, as workspace packages
   auth/                      # @dmb/auth — login form, zod schema, session contract
     src/login-form.tsx       # form + schema + request, one file (no premature splitting)
     src/login-form.test.tsx  # RTL + MSW (ADR-011)
-  messages/                  # @dmb/messages — feed, composer, edit/delete  [not built]
+  feed/                      # @dmb/feed — model, store, endpoint, composer/filter/feed UI (ADR-013)
 test/                        # msw handlers + vitest setup
 ```
 
@@ -154,6 +154,14 @@ measurement (`measureElement`), not a fixed `estimateSize`.
 **Trade-off:** shipping both paths means two ways to advance the cursor, and they must not
 double-fetch. `useInfiniteQuery` dedupes in-flight requests, which is a large part of why
 ADR-006 takes it (below).
+
+**Status:** the **baseline `LOAD MORE` button is now implemented** (`@dmb/feed`'s `LoadMore`).
+The first page is server-rendered; the button picks up its `nextCursor` and fetches pages 2..n
+from `GET /api/messages` on click, appending to local state — and it's keyed on the active
+filters so a filter change resets the appended pages. Hand-rolled deliberately: pulling in
+TanStack Query + `useInfiniteQuery` for a single button isn't worth it yet. The **auto-fetch
+enhancement and virtualization are still pending** (ADR-006) — that's the point at which Query's
+in-flight dedupe starts earning its weight.
 
 ### ADR-005 — Optimistic UI with real rollback — Proposed
 Post/edit/delete (B3) apply immediately against a local overlay, then reconcile with the
@@ -374,6 +382,56 @@ layout (handle + visible button) is unchanged. Two CSS-toggled variants (`hidden
 different affordances, and a plain `hidden` swap is cheaper to reason about than branching a
 single component on viewport. The bar's own dimensions also step down (72→60px tall, 32→18px
 pad, 22→18px brand) to match the mobile spec.
+
+### ADR-013 — The feed store: `@dmb/feed`, faker-seeded, server-only, cursor-paged — Accepted
+The feed's data and domain live in a workspace package, `@dmb/feed`, mirroring `@dmb/auth`:
+the model, the seeded users, the mock store, cursor pagination, and the composer/filter/feed UI
+are all here; `next/*` stays in `app/`. This is the concrete realization of ADR-001 (mock behind
+a real route handler) and ADR-008 (feature-as-package) for the feed.
+
+**The store (N3).** ~1000 messages generated once with **`@faker-js/faker`** and held in memory
+for the life of the process. Three decisions worth stating:
+
+- **Fixed seed (`faker.seed`)** — the data is identical across restarts. That is what makes a
+  shared filtered URL show the same thing tomorrow, and lets a store-level test assert on
+  concrete output. A random seed would trade that away for nothing we need.
+- **Pinned to `globalThis`** — Next dev's HMR re-imports modules on every edit; without the
+  global pin the store would re-seed and reshuffle ids mid-session, invalidating any cursor or
+  optimistic id the client is holding. The one-line `globalThis.__dmbFeedStore ??= seed()` is
+  the standard fix and it's load-bearing, not defensive.
+- **`import "server-only"`** on the store and query modules, exported through a **separate
+  `@dmb/feed/server` entry**. The main barrel (`@dmb/feed`) carries only client-safe things —
+  the model, the constants, the UI. So a client component importing from `@dmb/feed` *cannot*
+  pull the ~5MB faker dependency into the bundle; the boundary is enforced by the module graph,
+  not by a comment. This is the same instinct as ADR-010's ui-kit-as-package.
+
+**The contract.** `GET /api/messages` returns `{ items, nextCursor }`. Filters mirror the URL
+1:1 (ADR-002): repeatable `user`/`tag`, an inclusive `from`/`to` **date range** kept as clean
+`YYYY-MM-DD` so a shared link reads well. The **cursor** is an opaque, base64 `(createdAt, id)`
+pair — not an offset — so a post inserted at the top mid-scroll (F2) never makes page 2
+double-serve or skip a row (ADR-004). The route handler is thin: parse + `zod`-validate → call
+`getMessages` → JSON, `400` on bad params. `author` is denormalized onto each message so the
+feed renders a name without a second lookup.
+
+**The container/presentational split (F11).** `app/feed/page.tsx` is the container: it reads the
+filter params, fetches the first filtered page **on the server** (Q1), and branches three ways —
+`loading` is delegated to `app/feed/loading.tsx` (Next's streaming Suspense fallback, not a
+client boolean), `empty` renders `<FeedEmpty>`, data renders `<Feed data={…}>`. The filter UI
+follows the same seam as login: a presentational `FeedFilterPanel` (no `next/*`, reports changes
+through an `onFilterChange({ [field]: values })` callback) driven by an `app/feed/`-side
+`FeedFilterBar` that owns the `router.replace` URL write. Tags and owners are multi-select
+toggles — checkboxes that read as buttons.
+
+**Contract note — user id.** Message `createdBy` and the session's user id both follow
+`u_${name}` where `const [name] = email.split("@")`. `@dmb/auth`'s `verifyCredentials` already
+mints session ids this way (ADR-003), so `createdBy` and the logged-in user line up for free —
+which is what makes the author-only edit/delete check (F8/F9) real rather than a mismatch waiting
+to be discovered.
+
+**Deferred:** the composer's submit is a deliberate no-op for now (the form and its 240-char
+guard land here; the optimistic `POST` + rollback is ADR-005). Infinite scroll and virtualization
+over pages 2..n (ADR-004/ADR-006, TanStack Query + Virtual) wrap `<Feed>` without changing its
+shape — that's why the presentational split is worth it.
 
 ---
 

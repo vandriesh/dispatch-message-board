@@ -4,8 +4,10 @@ A small Next.js message board built for the SDE Frontend Challenge: mock-authent
 post short tagged messages to a shared feed, which can be filtered by tag, user, and date
 range — with the active filters reflected in the URL so any filtered view is shareable.
 
-> **Project status: design system + login.** `@dmb/ui-kit` (browse it at `/ui-kit`) and
-> `@dmb/auth` are built and tested; the feed, filters, and mock API are next. See
+> **Project status: design system, login, and the feed read path.** `@dmb/ui-kit` (browse it at
+> `/ui-kit`), `@dmb/auth`, and now `@dmb/feed` — the faker-seeded mock store, the
+> `GET /api/messages` route handler, and the feed/composer/filter UI at `/feed` — are built.
+> Posting, inline edit/delete, and client-side infinite scroll are next. See
 > [_ARCHITECTURE.md](_ARCHITECTURE.md) for the decisions and [_REQUIREMENTS.md](_REQUIREMENTS.md)
 > for what's done.
 
@@ -102,6 +104,13 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
   appears/disappears on the transition rather than a navigation late. On mobile the bar slims
   down and folds the handle + `LOG OUT` into a `Popover` menu behind the avatar. See
   [ADR-012](_ARCHITECTURE.md).
+- **The feed is mocked behind a real endpoint, not a fake array.** `@dmb/feed` seeds ~1000 faker
+  messages once (fixed seed, pinned to `globalThis` so dev HMR doesn't reshuffle) and serves them
+  from `GET /api/messages` with **cursor** pagination and URL-mirrored filters. The store is
+  `server-only` behind a `@dmb/feed/server` entry, so faker can never reach the client bundle.
+  `/feed` is the container: it server-renders the first filtered page and branches
+  loading (`loading.tsx`) / empty / data — filters are the URL, so a filtered view is shareable
+  and restores on cold load. See [ADR-013](_ARCHITECTURE.md).
 - **Design tokens are measured, not assumed.** Every value came from `getComputedStyle` on the
   reference design. Its prose claims a uniform "3px border, 6px shadow"; the rendered CSS
   actually *scales* both with control size, and shadows appear only at ≥42px. The pixels won.

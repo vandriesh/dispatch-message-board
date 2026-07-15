@@ -1,0 +1,82 @@
+import "server-only"
+
+import { z } from "zod"
+
+import {
+  TAGS,
+  authorOf,
+  type FeedFilters,
+  type FeedPage,
+  type Message,
+} from "./message"
+import { messagesStore } from "./store"
+
+const DEFAULT_LIMIT = 20
+const MAX_LIMIT = 100
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Query params for `GET /api/messages`, validated at the route boundary. Arrays
+ * come from repeated params (`?tag=PRODUCT&tag=DESIGN`); `limit` is coerced from
+ * its string form. Field names match the URL (ADR-002) so nothing has to be
+ * renamed between the query string and the filter contract.
+ */
+export const feedQuerySchema = z.object({
+  user: z.array(z.string()).optional(),
+  tag: z.array(z.enum(TAGS)).optional(),
+  from: z.string().regex(DATE_ONLY, "Expected YYYY-MM-DD").optional(),
+  to: z.string().regex(DATE_ONLY, "Expected YYYY-MM-DD").optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_LIMIT).optional(),
+})
+export type FeedQuery = z.infer<typeof feedQuerySchema>
+
+function matches(m: Message, f: FeedFilters): boolean {
+  if (f.user?.length && !f.user.includes(m.createdBy)) return false
+  if (f.tag?.length && !f.tag.includes(m.tag)) return false
+  // Compare on the date portion so a `YYYY-MM-DD` bound is inclusive of the whole
+  // UTC day at both ends.
+  const day = m.createdAt.slice(0, 10)
+  if (f.from && day < f.from) return false
+  if (f.to && day > f.to) return false
+  return true
+}
+
+// The cursor is opaque to the client: the last row's (createdAt, id), which is
+// stable when a new post is inserted at the top mid-scroll (ADR-004).
+const encodeCursor = (m: Message) => btoa(`${m.createdAt}|${m.id}`)
+function decodeCursor(cursor: string): { createdAt: string; id: string } {
+  const [createdAt, id] = atob(cursor).split("|")
+  return { createdAt, id }
+}
+
+/**
+ * The one read the feed is built on: filter, then walk the cursor. Pure over the
+ * store, so it's trivially testable and framework-free. Offset pagination would
+ * double-serve or skip rows once the composer inserts mid-list; the cursor keyed
+ * on (createdAt, id) does not.
+ */
+export function getMessages(query: FeedQuery = {}): FeedPage {
+  const { cursor, limit = DEFAULT_LIMIT, ...filters } = query
+  const filtered = messagesStore.filter((m) => matches(m, filters))
+
+  let start = 0
+  if (cursor) {
+    const { createdAt, id } = decodeCursor(cursor)
+    // Store is sorted newest-first; find the first row strictly past the cursor.
+    const after = filtered.findIndex(
+      (m) => m.createdAt < createdAt || (m.createdAt === createdAt && m.id < id)
+    )
+    start = after === -1 ? filtered.length : after
+  }
+
+  const page = filtered.slice(start, start + limit)
+  const hasMore = start + limit < filtered.length
+  const last = page.at(-1)
+
+  return {
+    items: page.map((m) => ({ ...m, author: authorOf(m.createdBy)! })),
+    nextCursor: hasMore && last ? encodeCursor(last) : null,
+  }
+}

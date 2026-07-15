@@ -19,19 +19,19 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| F1 | Users can log in. Users are mocked/pre-created — **no sign-up flow**. | Form + validation done (`@dmb/auth`); session-gated top bar + `LOG OUT` in the root layout land the login→feed→logout loop (ADR-012); awaiting the real `POST /api/session` |
-| F2 | Authenticated users can post short messages, **max 240 characters**. | Not started |
-| F3 | A message carries a **tag** (category), assigned at post time. | Not started |
-| F4 | All messages are visible on a Message Page (the feed). | Not started |
-| F5 | Feed can be filtered by **tag**. | Not started |
-| F6 | Feed can be filtered by **date & time**. | Not started |
-| F7 | Feed can be filtered by **user**. | Not started |
-| F8 | Only the **author** can inline-edit their own message. | Not started |
-| F9 | Only the **author** can delete their own message. | Not started |
-| F10 | Feed supports **pagination or infinite scroll** (either is acceptable). | Not started |
-| F11 | Feed has **loading** and **empty** states. | Not started |
-| F12 | Layout is **responsive** (mobile + desktop). | Not started |
-| F13 | Active filters (tag/date/user) are **reflected in the URL**, so filtered views are shareable/bookmarkable. | Not started |
+| F1 | Users can log in. Users are mocked/pre-created — **no sign-up flow**. | Form + validation done (`@dmb/auth`); session-gated top bar + `LOG OUT` in the root layout land the login→feed→logout loop (ADR-012); login is a Server Action against `verifyCredentials` |
+| F2 | Authenticated users can post short messages, **max 240 characters**. | Composer form + 240 guard done (`@dmb/feed` `Composer`); submit is a deliberate no-op pending the `POST` route (ADR-005) |
+| F3 | A message carries a **tag** (category), assigned at post time. | Tag vocab modeled; single-select in the composer. Post wiring pending with F2 |
+| F4 | All messages are visible on a Message Page (the feed). | Done — `/feed` server-renders the first page from `@dmb/feed` (ADR-013) |
+| F5 | Feed can be filtered by **tag**. | Done — endpoint + URL-driven multi-select toggle |
+| F6 | Feed can be filtered by **date & time**. | Date **range** done (`from`/`to`, inclusive). Time-of-day not exposed — see O3 |
+| F7 | Feed can be filtered by **user**. | Done — endpoint + URL-driven owner dropdown (single-select, "All users" clears; per the design) |
+| F8 | Only the **author** can inline-edit their own message. | Not started — id contract aligned (`u_${name}` from `verifyCredentials`, ADR-013) so the check has real inputs |
+| F9 | Only the **author** can delete their own message. | Not started — same contract alignment as F8 |
+| F10 | Feed supports **pagination or infinite scroll** (either is acceptable). | `LOAD MORE` button wired to the cursor endpoint (ADR-004). Auto-fetch-on-scroll + virtualization pending |
+| F11 | Feed has **loading** and **empty** states. | Done — `app/feed/loading.tsx` (streaming) + `<FeedEmpty>` |
+| F12 | Layout is **responsive** (mobile + desktop). | Desktop 2-col grid done (measured: 296px rail + feed, 1120 max, gap/padding 32). Mobile stacks to one column, no overflow; the design's `⚙` filter drawer is a later polish |
+| F13 | Active filters (tag/date/user) are **reflected in the URL**, so filtered views are shareable/bookmarkable. | Done — filters are the URL (ADR-002); verified cold-load hydration |
 
 ## Non-functional requirements
 
@@ -39,7 +39,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 |----|-------------|--------|
 | N1 | Design specs implemented **precisely** — assessed explicitly. Reference designs: **https://y8lj2w.csb.app** (desktop 1440 + mobile 390, per page). Tokens measured, not taken from its prose — see ADR-007. | Unblocked; kit built (`/ui-kit`) |
 | N2 | Modular, well-structured code. | Ongoing |
-| N3 | Backend is **mocked** — user creation, feed data, etc. Frontend skills are what's assessed. | Not started |
+| N3 | Backend is **mocked** — user creation, feed data, etc. Frontend skills are what's assessed. | Feed mocked behind a real route handler (`@dmb/feed` + `GET /api/messages`, ADR-012); session still MSW-only pending its route |
 | N4 | Beyond React and Next.js, **no prescribed tools**. Library choices are an opportunity to show preference + rationale. | Ongoing |
 | N5 | Edge cases and missing details are ours to decide — handling ambiguity is part of the assessment. | Ongoing |
 
@@ -59,7 +59,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 | B1 | At least one test (e.g. a component or hook test). | Done — login flow, RTL + MSW v2 (ADR-011) |
 | B2 | List virtualization for the feed — smooth interaction at **1000+ entries**. | Not started |
 | B3 | Optimistic UI for post/edit/delete, **with rollback on simulated failure**. | Not started |
-| B4 | Actual **route handlers** for mocked data/requests — shows how contracts with backend are established. Called out in the brief as a bonus. | Not started |
+| B4 | Actual **route handlers** for mocked data/requests — shows how contracts with backend are established. Called out in the brief as a bonus. | Done for the feed — `GET /api/messages` with cursor pagination + filters (ADR-012) |
 
 ## Bonus questions (to answer in writing)
 
