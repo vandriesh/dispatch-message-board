@@ -9,12 +9,21 @@ import {
   FeedEmpty,
   LoadMore,
   TAGS,
+  withOwnership,
   type FeedFilters,
+  type MessageActions,
   type Tag,
 } from "@dmb/feed"
 import { getMessages } from "@dmb/feed/server"
 
+import { deleteMessageAction, editMessageAction } from "./actions"
 import { FeedFilterBar } from "./feed-filter-bar"
+
+/** The edit/delete Server Actions, in the shape the cards consume (F8/F9). */
+const feedActions: MessageActions = {
+  edit: editMessageAction,
+  remove: deleteMessageAction,
+}
 
 export const metadata: Metadata = {
   title: "Feed — Dispatch",
@@ -72,17 +81,27 @@ export default async function FeedPage({
   const filters = parseFilters(await searchParams)
   const { items, nextCursor } = getMessages({ ...filters, limit: PAGE_SIZE })
 
+  // Stamp the per-viewer ownership flag here, at the boundary that has the
+  // session — the store stays viewer-agnostic. Pages 2..n get the same treatment
+  // in the /api/messages route so appended rows carry the flag too.
+  const owned = items.map((m) => withOwnership(m, session.id))
+
   return (
     <main className="mx-auto grid w-full max-w-[1120px] grid-cols-1 gap-8 p-4 lg:grid-cols-[296px_1fr] lg:p-8">
       <FeedFilterBar value={filters} />
 
       <section className="flex min-w-0 flex-col gap-4">
         <Composer />
-        {items.length === 0 ? <FeedEmpty /> : <Feed data={items} />}
+        {owned.length === 0 ? (
+          <FeedEmpty />
+        ) : (
+          <Feed data={owned} actions={feedActions} />
+        )}
         <LoadMore
           key={JSON.stringify(filters)}
           filters={filters}
           initialCursor={nextCursor}
+          actions={feedActions}
         />
       </section>
     </main>

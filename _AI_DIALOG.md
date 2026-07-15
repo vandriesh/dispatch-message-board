@@ -144,3 +144,20 @@ I think we need to start planning the feed api endpoint - to return mocks payloa
 ---
 
 default page - > we need to redirect to login
+
+---
+
+under feed feature create a file rbac.ts with isOwner that should compare user's id from session with the post's id - it it's same id ->
+than we have the owner - that can EDIT/DELETE a post
+
+if to consult next.js where is the best place to have this check
+
+---
+
+safest imho is on server side (and set a property { ower: true/false })
+
+when submiting delete/edit - on server side check ownership again
+
+---
+
+yes, also update the card

@@ -17,6 +17,16 @@ export default defineConfig({
      * Order matters — exact before prefix.
      */
     alias: [
+      // `server-only` throws when imported outside a Server Component; under
+      // vitest there is no `react-server` condition, so point it at the package's
+      // own no-op stub to let server modules (the store, mutations) be unit-tested.
+      {
+        find: /^server-only$/,
+        replacement: path.resolve(
+          __dirname,
+          "node_modules/server-only/empty.js",
+        ),
+      },
       { find: /^@dmb\/ui-kit$/, replacement: `${pkg("ui-kit")}/index.ts` },
       { find: /^@dmb\/ui-kit\//, replacement: `${pkg("ui-kit")}/` },
       { find: /^@dmb\/auth$/, replacement: `${pkg("auth")}/index.ts` },

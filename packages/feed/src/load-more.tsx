@@ -4,7 +4,9 @@ import * as React from "react"
 import { Button } from "@dmb/ui-kit"
 
 import { Feed } from "./feed"
-import { type FeedFilters, type FeedMessage, type FeedPage } from "./message"
+import { type MessageActions } from "./owner-message-card"
+import { type FeedFilters } from "./message"
+import { type OwnedFeedPage, type OwnedMessage } from "./rbac"
 
 /**
  * The `LOAD MORE` button (F10, ADR-004) and the pages it appends. The first page
@@ -24,11 +26,13 @@ import { type FeedFilters, type FeedMessage, type FeedPage } from "./message"
 export function LoadMore({
   filters,
   initialCursor,
+  actions,
 }: {
   filters: FeedFilters
   initialCursor: string | null
+  actions: MessageActions
 }) {
-  const [items, setItems] = React.useState<FeedMessage[]>([])
+  const [items, setItems] = React.useState<OwnedMessage[]>([])
   const [cursor, setCursor] = React.useState(initialCursor)
   const [loading, setLoading] = React.useState(false)
 
@@ -45,7 +49,7 @@ export function LoadMore({
 
       const res = await fetch(`/api/messages?${params}`)
       if (!res.ok) return
-      const page = (await res.json()) as FeedPage
+      const page = (await res.json()) as OwnedFeedPage
 
       setItems((prev) => [...prev, ...page.items])
       setCursor(page.nextCursor)
@@ -56,7 +60,7 @@ export function LoadMore({
 
   return (
     <>
-      {items.length > 0 && <Feed data={items} />}
+      {items.length > 0 && <Feed data={items} actions={actions} />}
       {cursor && (
         <Button
           type="button"

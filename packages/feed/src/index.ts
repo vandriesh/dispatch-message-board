@@ -20,9 +20,18 @@ export {
   type Tag,
 } from "./message"
 
+// Authorship RBAC — client-safe, framework-free (see rbac.ts).
+export {
+  isOwner,
+  withOwnership,
+  type OwnedFeedPage,
+  type OwnedMessage,
+} from "./rbac"
+
 // Feature UI.
 export { Composer } from "./composer"
 export { Feed } from "./feed"
+export { type MessageActions } from "./owner-message-card"
 export { FeedEmpty } from "./feed-empty"
 export { FeedFilterPanel } from "./feed-filters"
 export { LoadMore } from "./load-more"
