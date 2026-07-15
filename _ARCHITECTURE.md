@@ -37,17 +37,25 @@ app/                         # Next.js router surface ONLY — thin; wires, does
     messages/route.ts        # GET (cursor-paginated, filtered), POST      — B4
     messages/[id]/route.ts   # PATCH, DELETE (author-only)                 — B4
     session/route.ts         # POST login, DELETE logout
+  login/page.tsx             # F1 — static; renders the feature form
+  login/login-route.tsx      # the ONLY file that knows Next exists: router.push on success
   ui-kit/page.tsx            # gallery of every primitive, for design comparison
 proxy.ts                     # optimistic auth redirect only (see ADR-003)
-features/                    # the domain: components + services, owned by feature
-  messages/                  # feed, composer, inline edit/delete, message service + types
-  auth/                      # login, session service
-  <feature>/README.md        # per-feature structure + specs
-packages/
+packages/                    # the domain, as workspace packages
   ui-kit/                    # @dmb/ui-kit — design-system primitives (ADR-010)
     src/components/          # shadcn atoms, rethemed to the tokens
     src/index.ts             # the public surface
+  auth/                      # @dmb/auth — login form, zod schema, session contract
+    src/login-form.tsx       # form + schema + request, one file (no premature splitting)
+    src/login-form.test.tsx  # RTL + MSW (ADR-011)
+  messages/                  # @dmb/messages — feed, composer, edit/delete  [not built]
+test/                        # msw handlers + vitest setup
 ```
+
+**Features are packages, not folders.** ADR-010 introduced `packages/ui-kit`; `@dmb/auth`
+follows the same shape, for the same reason — the module graph enforces the boundary. A feature
+package importing `next/*` is now a thing you'd have to do on purpose, and ADR-011 explains why
+that matters more than it sounds.
 
 Two structural decisions carry most of the weight:
 
@@ -261,6 +269,37 @@ Tailwind must be told to scan outside `app/`, hence `@source "../packages/ui-kit
 
 **Cost.** A workspace is more setup than a folder, and `npm install` now has to link it. Cheap,
 and paid once.
+
+### ADR-011 — Testing: RTL + MSW v2, enabled by an `onSuccess` seam — Accepted
+Tests drive the **real** component with React Testing Library, and **MSW v2** answers HTTP at
+the network layer. No mocked `fetch`, no mocked router, no shallow rendering.
+
+**This only works because of ADR-001.** MSW intercepts `fetch`, so it can test a Client
+Component that calls a route handler — which is exactly what we built. Had login been a
+**Server Action**, MSW would be useless: Server Actions are a Next-internal POST protocol with
+an encoded action id, and a Server Component cannot be rendered in RTL at all. Teams hit this
+and conclude "MSW doesn't work with Next", when in fact they picked the one design MSW cannot
+see. Choosing real route handlers for the B4 bonus bought us a conventional, framework-agnostic
+testing story for free.
+
+**The constraint it imposes — and it is the load-bearing design decision here:** a feature
+package must not import from `next/*`. The moment `LoginForm` imports `useRouter`, it drags the
+App Router into jsdom and the test has to mock Next internals. So the form takes an
+**`onSuccess` callback**, and `app/login/login-route.tsx` — the one file that knows Next exists
+— supplies `router.push("/feed")`. The test substitutes its own "protected view" through the
+same seam, so it exercises the real form, the real schema, and the real request.
+
+The mock keys its response off the **email** (`packages/auth/src/login-form.mocks.ts`, colocated
+with the form), so a test picks its outcome by choosing who logs in rather than by rewiring
+handlers: `gooduser@dispatch.dev` → 200, `villainuser@dispatch.dev` → 401. Each package owns its
+own MSW server and handlers; the root `test/setup.ts` is generic (jsdom matchers + cleanup only),
+so a test stays as close to its target as possible instead of reaching into a shared registry.
+
+`onUnhandledRequest: "error"` means an unmocked endpoint fails the run loudly. That is what
+lets the validation test assert the request was **never made**, not merely that it failed.
+
+Satisfies **B1**. The highest-value test is still the optimistic-rollback path (B3) once
+mutations exist; the same setup covers it.
 
 ### ADR-008 — Feature-modular organization, gradually extracted — Accepted
 Code is organized **by feature, not by file type**, following the project's

@@ -63,3 +63,24 @@ I think Avatar should need some fixes. compare with the original element.
 
 commit using commitlint convention
 
+---
+
+now let's build the routes (will wire to backend separately)
+for now I need you to constructs the forms (login)
+unde new package auth (imported by "@dmn/auth")
+
+a good separation would be to keep what depends on nextjs (imports from nextjs) under app dir, the rest form itself , zod validation schema, the form in the package feature
+
+this one login could be very good example to add a test that covers auth
+
+it uses msw v2 lib to mock server response (gooduser@... ) get's redirect to protect resources and sees "Welcome gooduser@....dev)
+and vilanuser@....dev gets Incorect user or password error message
+
+the response depends on user's email
+
+That's the way I was using to test on other than next js aps - is this method/way is appropriate for nextjs app?
+
+---
+
+note how login mobile page is split in 1/4 yellow bg with title and logo + 3/4 of white bg with the login form vs responsive implementation we have
+

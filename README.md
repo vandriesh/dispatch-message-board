@@ -4,9 +4,10 @@ A small Next.js message board built for the SDE Frontend Challenge: mock-authent
 post short tagged messages to a shared feed, which can be filtered by tag, user, and date
 range — with the active filters reflected in the URL so any filtered view is shareable.
 
-> **Project status: scaffold + design docs.** The requirements, architecture, and decisions
-> are written up; the feature code is not built yet. See [_ARCHITECTURE.md](_ARCHITECTURE.md)
-> for the plan and [_REQUIREMENTS.md](_REQUIREMENTS.md) .
+> **Project status: design system + login.** `@dmb/ui-kit` (browse it at `/ui-kit`) and
+> `@dmb/auth` are built and tested; the feed, filters, and mock API are next. See
+> [_ARCHITECTURE.md](_ARCHITECTURE.md) for the decisions and [_REQUIREMENTS.md](_REQUIREMENTS.md)
+> for what's done.
 
 ## Getting started
 
@@ -46,6 +47,7 @@ _(The full seed list lands with the login screen and will be listed here.)_
 | `npm run build` | Production build |
 | `npm start` | Serve the production build |
 | `npm run lint` | ESLint |
+| `npm test` | Vitest (jsdom + MSW) |
 
 ## Documentation
 
@@ -83,6 +85,11 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
   primitives rethemed to the design's tokens. A package because the module graph then *enforces*
   the boundary: the kit can't import from `features/`, so a primitive can't quietly grow domain
   knowledge. Browse them all at **`/ui-kit`**, which exists to make design drift visible.
+- **Feature packages never import `next/*`.** `@dmb/auth` owns the login form, its zod schema,
+  and the request; `app/login/login-route.tsx` is the only file that knows Next exists, and it
+  supplies the redirect via an `onSuccess` callback. That seam is what lets the login flow be
+  tested with **RTL + MSW v2** — real component, real fetch, no App Router mock. It also only
+  works because the backend is route handlers, not Server Actions, which MSW cannot intercept.
 - **Design tokens are measured, not assumed.** Every value came from `getComputedStyle` on the
   reference design. Its prose claims a uniform "3px border, 6px shadow"; the rendered CSS
   actually *scales* both with control size, and shadows appear only at ≥42px. The pixels won.

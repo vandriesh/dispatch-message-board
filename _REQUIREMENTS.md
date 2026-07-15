@@ -19,7 +19,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| F1 | Users can log in. Users are mocked/pre-created — **no sign-up flow**. | Not started |
+| F1 | Users can log in. Users are mocked/pre-created — **no sign-up flow**. | Form + validation done (`@dmb/auth`); awaiting the real `POST /api/session` |
 | F2 | Authenticated users can post short messages, **max 240 characters**. | Not started |
 | F3 | A message carries a **tag** (category), assigned at post time. | Not started |
 | F4 | All messages are visible on a Message Page (the feed). | Not started |
@@ -37,7 +37,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| N1 | Design specs implemented **precisely** — assessed explicitly. Reference designs: **https://y8lj2w.csb.app** (desktop 1440 + mobile 390, per page). Tokens: 3px borders, 6px/6px solid `#111` offset shadows, 0 radius, accent `#FFE600`. | Unblocked — see O1 |
+| N1 | Design specs implemented **precisely** — assessed explicitly. Reference designs: **https://y8lj2w.csb.app** (desktop 1440 + mobile 390, per page). Tokens measured, not taken from its prose — see ADR-007. | Unblocked; kit built (`/ui-kit`) |
 | N2 | Modular, well-structured code. | Ongoing |
 | N3 | Backend is **mocked** — user creation, feed data, etc. Frontend skills are what's assessed. | Not started |
 | N4 | Beyond React and Next.js, **no prescribed tools**. Library choices are an opportunity to show preference + rationale. | Ongoing |
@@ -56,7 +56,7 @@ Deliberate scoping decisions are in scope — untouched tools should still be ju
 
 | ID | Item | Status |
 |----|------|--------|
-| B1 | At least one test (e.g. a component or hook test). | Not started |
+| B1 | At least one test (e.g. a component or hook test). | Done — login flow, RTL + MSW v2 (ADR-011) |
 | B2 | List virtualization for the feed — smooth interaction at **1000+ entries**. | Not started |
 | B3 | Optimistic UI for post/edit/delete, **with rollback on simulated failure**. | Not started |
 | B4 | Actual **route handlers** for mocked data/requests — shows how contracts with backend are established. Called out in the brief as a bonus. | Not started |
@@ -77,9 +77,9 @@ Recorded rather than silently assumed. Each was checked against the design spec 
 
 - **O1 — Where are the designs?** ✅ **Resolved.** The reference designs are at
   **https://y8lj2w.csb.app** — three sections (Login, Feed default, Feed empty & loading),
-  each at desktop 1440 and mobile 390. The spec states its own tokens: **3px borders,
-  6px/6px solid `#111` offset shadows, 0 corner radius, single accent `#FFE600`**. N1 is
-  unblocked.
+  each at desktop 1440 and mobile 390. **Its prose claims a uniform 3px border and 6px/6px
+  shadow — the rendered CSS does not do that.** Both scale with control size, and shadows
+  appear only at ≥42px. Tokens were measured with `getComputedStyle`; see ADR-007. N1 unblocked.
 - **O2 — Tag vocabulary.** ✅ **Resolved, confirmed by the design.** A fixed set of four:
   `PRODUCT`, `DESIGN`, `RANDOM`, `ANNOUNCE`. **One tag per message.** On mobile the filter
   rail shows three chips plus a `⚙` overflow — the fourth tag needs a "more" affordance.
