@@ -1,51 +1,74 @@
 import * as React from "react"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
-import { LoginForm, type SessionUser } from "@dmb/auth"
+import {
+  INVALID_CREDENTIALS,
+  LoginForm,
+  verifyCredentials,
+  type SessionUser,
+} from "@dmb/auth"
+// `LoginAction` is the form's internal prop contract, not public API — the test
+// lives in the package, so it imports it from the module directly.
+import type { LoginAction } from "./login-contract"
 
-import { GOOD_USER, server, VILLAIN_USER } from "./login-form.mocks"
-
-/**
- * The auth package owns its own MSW lifecycle. `onUnhandledRequest: "error"`
- * means an endpoint nobody mocked fails the run loudly — which is what lets the
- * validation test below assert the request was *never made*, not merely that it
- * failed.
- */
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }))
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
+const GOOD_USER = "gooduser@dispatch.dev"
 
 /**
- * Stands in for the app's routing. In the real app, app/login/login-route.tsx
- * responds to `onSuccess` with `router.push("/feed")`; here we swap to the
- * protected view directly.
+ * Login validates on both sides (client gate + Server Action), with one shared
+ * `loginSchema`. These tests cover the two framework-agnostic halves — no Next
+ * mock, no network:
  *
- * That substitution is the whole point of the `onSuccess` seam: because @dmb/auth
- * never imports next/navigation, the login flow can be exercised end-to-end in
- * plain jsdom — real component, real fetch, real validation — with MSW answering
- * at the network layer and no App Router mock anywhere.
+ *  1. `verifyCredentials` directly — a pure function, tested at its source.
+ *  2. The form driven by a fake "server" action. The action does NOT validate:
+ *     validation is the form's own client-side gate, so passing a non-validating
+ *     action is exactly how we prove the gate stops a bad payload before it's
+ *     ever called. The action stands in for the real Server Action's business
+ *     logic (credential check); its cookie/redirect glue is Next-specific and
+ *     belongs to an E2E test.
  */
+function fakeServerAction(onUser: (user: SessionUser) => void): LoginAction {
+  return async (_prev, formData) => {
+    const user = verifyCredentials({
+      email: String(formData.get("email")),
+      password: String(formData.get("password")),
+    })
+    if (!user) return { formError: INVALID_CREDENTIALS }
+    onUser(user)
+    return {}
+  }
+}
+
+/** Stands in for the route: on success the real app redirects to /feed; here we
+ *  swap to the protected view, mirroring what the redirect would reveal. */
 function AuthFlow() {
   const [user, setUser] = React.useState<SessionUser | null>(null)
-
-  if (user) {
-    return <h1>Welcome {user.email}</h1>
-  }
-
-  return <LoginForm onSuccess={setUser} />
+  if (user) return <h1>Welcome {user.email}</h1>
+  return <LoginForm action={fakeServerAction(setUser)} />
 }
 
 async function submitLogin(email: string, password: string) {
   const user = userEvent.setup()
-  // user-event throws on an empty string, so an omitted field is simply left alone.
   if (email) await user.type(screen.getByLabelText(/email/i), email)
   if (password) await user.type(screen.getByLabelText(/password/i), password)
   await user.click(screen.getByRole("button", { name: /log in/i }))
 }
 
-describe("login", () => {
+describe("verifyCredentials", () => {
+  it("accepts a seeded account (password == email)", () => {
+    expect(verifyCredentials({ email: GOOD_USER, password: GOOD_USER })).toEqual({
+      id: "u_gooduser",
+      email: GOOD_USER,
+    })
+  })
+
+  it("rejects a wrong password", () => {
+    expect(verifyCredentials({ email: GOOD_USER, password: "nope" })).toBeNull()
+  })
+})
+
+describe("login form", () => {
   it("lets a valid user through to the protected view", async () => {
     render(<AuthFlow />)
 
@@ -57,29 +80,26 @@ describe("login", () => {
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
   })
 
-  it("shows an error and stays put when the credentials are rejected", async () => {
+  it("shows an error and stays put when the password is wrong", async () => {
     render(<AuthFlow />)
 
-    await submitLogin(VILLAIN_USER, "hunter2")
+    await submitLogin(GOOD_USER, "wrong-password")
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Incorrect user or password"
-    )
-    // Still on the form — a failed login must not navigate.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Incorrect user or password")
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: /welcome/i })).not.toBeInTheDocument()
   })
 
-  it("validates before it ever reaches the network", async () => {
-    const onSuccess = vi.fn()
-    render(<LoginForm onSuccess={onSuccess} />)
+  it("gates a bad payload on the client, sparing the server a round-trip", async () => {
+    // A non-validating action: if the client gate leaks, `verifyCredentials`
+    // would run and this spy would fire. It must not.
+    const serverAction = vi.fn<LoginAction>(async () => ({}))
+    render(<LoginForm action={serverAction} />)
 
     await submitLogin("not-an-email", "")
 
     expect(await screen.findByText(/enter a valid email address/i)).toBeInTheDocument()
     expect(screen.getByText(/password is required/i)).toBeInTheDocument()
-    expect(onSuccess).not.toHaveBeenCalled()
-    // MSW is configured with onUnhandledRequest: "error", so a stray request here
-    // would fail the run — this asserts the request was never made at all.
+    expect(serverAction).not.toHaveBeenCalled()
   })
 })

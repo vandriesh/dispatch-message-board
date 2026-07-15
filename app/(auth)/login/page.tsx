@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
+import { LoginForm } from "@dmb/auth"
 
-import { LoginRoute } from "./login-route"
+import { loginAction } from "./actions"
 
 export const metadata: Metadata = {
   title: "Log in — Dispatch",
@@ -14,12 +15,15 @@ export const metadata: Metadata = {
  * already-authenticated user. That check belongs in proxy.ts, and doing it here
  * would silently turn this page dynamic.
  *
+ * `loginAction` is a Server Action passed to the (client) form as a prop — the
+ * canonical way to keep @dmb/auth free of `next/*` while the redirect and cookie
+ * happen server-side.
+ *
  * Layout matches the reference design's split, measured off it:
  *   - mobile: a yellow hero band (~1/4, hugs its content) over a white form
  *     area (~3/4), divided by a 3px bottom border.
  *   - desktop: a yellow column (~43%) beside a white column, divided by a 3px
  *     right border. Both full height.
- * The whole screen is the split — there is no floating card.
  */
 export default function LoginPage() {
   return (
@@ -42,7 +46,7 @@ export default function LoginPage() {
 
       {/* Form — white */}
       <section className="flex flex-1 flex-col justify-start bg-surface px-7 py-8 md:justify-center md:px-14 md:py-16">
-        <LoginRoute />
+        <LoginForm action={loginAction} />
       </section>
     </main>
   )

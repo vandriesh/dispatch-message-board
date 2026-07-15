@@ -84,3 +84,26 @@ That's the way I was using to test on other than next js aps - is this method/wa
 
 note how login mobile page is split in 1/4 yellow bg with title and logo + 3/4 of white bg with the login form vs responsive implementation we have
 
+---
+
+now let's update a bit and move app/login under app/(auth)/{login,logout} - to group functionality that's part of auth feature (but are not nextjs agnostic)
+
+on server side we also would need to validate payload
+
+```ts
+    // extract
+    const data = {
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
+    }
+
+    // validate (import schema from @dmb/auth )
+    const validationResult = loginShema.safeParse(data)
+    // ...
+    // if ok redirect, else return error(s)
+```
+
+
+---
+
+the idea is to have validation on both sides - client - to save the BE from bad payload  - and BE to save from direct "hits/attacks"

@@ -47,7 +47,7 @@ _(The full seed list lands with the login screen and will be listed here.)_
 | `npm run build` | Production build |
 | `npm start` | Serve the production build |
 | `npm run lint` | ESLint |
-| `npm test` | Vitest (jsdom + MSW) |
+| `npm test` | Vitest (jsdom) |
 
 ## Documentation
 
@@ -85,11 +85,16 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
   primitives rethemed to the design's tokens. A package because the module graph then *enforces*
   the boundary: the kit can't import from `features/`, so a primitive can't quietly grow domain
   knowledge. Browse them all at **`/ui-kit`**, which exists to make design drift visible.
-- **Feature packages never import `next/*`.** `@dmb/auth` owns the login form, its zod schema,
-  and the request; `app/login/login-route.tsx` is the only file that knows Next exists, and it
-  supplies the redirect via an `onSuccess` callback. That seam is what lets the login flow be
-  tested with **RTL + MSW v2** — real component, real fetch, no App Router mock. It also only
-  works because the backend is route handlers, not Server Actions, which MSW cannot intercept.
+- **Feature packages never import `next/*`.** `@dmb/auth` owns the login form and its zod schema;
+  the form takes its submit **action as a prop**, so the route (`app/(auth)/login/`) injects the
+  real Server Action while a test injects a plain function — same component, no App Router in
+  jsdom. That injected seam is what lets the login flow be tested with **RTL** against the real
+  component (no MSW, no `fetch` to mock — a Server Action has none). See
+  [ADR-011](_ARCHITECTURE.md).
+- **Login validates on both sides, against one schema.** The client gate spares the backend
+  bad payloads and gives instant feedback; the Server Action re-validates the same `loginSchema`
+  because a direct hit never runs the client. One schema, one error-mapping — no drift. See
+  [ADR-003](_ARCHITECTURE.md).
 - **Design tokens are measured, not assumed.** Every value came from `getComputedStyle` on the
   reference design. Its prose claims a uniform "3px border, 6px shadow"; the rendered CSS
   actually *scales* both with control size, and shadows appear only at ≥42px. The pixels won.

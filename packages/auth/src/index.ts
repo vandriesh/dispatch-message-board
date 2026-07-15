@@ -2,17 +2,24 @@
  * @dmb/auth — login, validation, and the session contract.
  *
  * Framework-agnostic on purpose: nothing here imports from `next/*`. The form
- * reports success through an `onSuccess` callback and lets the *route* decide
- * what navigation means. That is what allows the whole feature to be rendered in
- * a plain jsdom test with MSW underneath it, with no App Router mock in sight.
+ * delegates the submit to an injected `action` (a Server Action, supplied by the
+ * route), so the whole feature can be rendered and tested in plain jsdom with a
+ * fake action — no App Router mock, no network.
+ *
+ * The split is deliberate: `login-contract.ts` is a plain module holding the
+ * schema, types, and pure logic so *server* code (the Server Action) imports the
+ * real implementations, while `login-form.tsx` is `"use client"` and holds only
+ * the component. Mixing the two would hand the server client-reference stubs.
  */
 export {
   INVALID_CREDENTIALS,
-  login,
-  LoginForm,
   loginSchema,
-  type LoginError,
-  type LoginFormProps,
+  parseLogin,
+  verifyCredentials,
+  // type LoginAction,
+  type LoginState,
   type LoginValues,
   type SessionUser,
-} from "./login-form"
+} from "./login-contract"
+
+export { LoginForm } from "./login-form"

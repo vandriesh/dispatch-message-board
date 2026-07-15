@@ -114,6 +114,17 @@ against the session, server-side.
 with a mocked backend, the *shape* of the trust boundary should be the real one, because
 that's the part a reviewer is actually reading for.
 
+**Validation runs on both sides, through one function.** Both the **client gate** inside
+`LoginForm` and the **Server Action** (`app/(auth)/login/actions.ts`) call the *same*
+`parseLogin(formData)` from `@dmb/auth` — it runs `loginSchema` and shapes the errors, and it is
+the only place that does either. The client gate rejects a malformed submit in the browser before
+it costs a round-trip; the Server Action re-runs `parseLogin` regardless. The two are not
+redundant — they answer different threats. The client check spares the backend obviously-bad
+payloads and gives instant feedback; the server check is the boundary that actually holds, because
+a direct `curl` never runs the client. Because both sides are literally the same function rather
+than two copies of a schema, a rule added in one place cannot silently disagree with the other —
+the classic failure mode of two-sided validation is two drifting copies, and there are none here.
+
 ### ADR-004 — `LOAD MORE` button + auto-fetch, over a virtualized cursor-paginated list — Accepted
 F10 allows either pagination or infinite scroll, so the **design breaks the tie**: the feed
 mockup ends in an explicit `LOAD MORE ↓` button, and N1 says design precision is assessed.
@@ -270,36 +281,38 @@ Tailwind must be told to scan outside `app/`, hence `@source "../packages/ui-kit
 **Cost.** A workspace is more setup than a folder, and `npm install` now has to link it. Cheap,
 and paid once.
 
-### ADR-011 — Testing: RTL + MSW v2, enabled by an `onSuccess` seam — Accepted
-Tests drive the **real** component with React Testing Library, and **MSW v2** answers HTTP at
-the network layer. No mocked `fetch`, no mocked router, no shallow rendering.
+### ADR-011 — Testing: RTL against a real component, seamed by an injected action — Accepted
+Tests drive the **real** `LoginForm` with React Testing Library — no mocked router, no shallow
+rendering, no network. There is also **no MSW**, and that is a direct consequence of login being
+a **Server Action** (see the auth refactor): Server Actions are a Next-internal POST protocol
+with an encoded action id, so there is no `fetch` for MSW to intercept and nothing at the network
+layer to mock. The seam moved from the network to the **action itself**.
 
-**This only works because of ADR-001.** MSW intercepts `fetch`, so it can test a Client
-Component that calls a route handler — which is exactly what we built. Had login been a
-**Server Action**, MSW would be useless: Server Actions are a Next-internal POST protocol with
-an encoded action id, and a Server Component cannot be rendered in RTL at all. Teams hit this
-and conclude "MSW doesn't work with Next", when in fact they picked the one design MSW cannot
-see. Choosing real route handlers for the B4 bonus bought us a conventional, framework-agnostic
-testing story for free.
+**The load-bearing constraint is unchanged:** a feature package must not import from `next/*`.
+The moment `LoginForm` reaches for `redirect` or a Server Action module, it drags Next into jsdom.
+So the form takes the **action as a prop** (`action: LoginAction`) and has no opinion about what
+login *does*. The route (`app/(auth)/login/page.tsx`) injects the real Server Action; a test
+injects a plain async function. Same component, same schema, same `useActionState` wiring — only
+the far end of the seam differs.
 
-**The constraint it imposes — and it is the load-bearing design decision here:** a feature
-package must not import from `next/*`. The moment `LoginForm` imports `useRouter`, it drags the
-App Router into jsdom and the test has to mock Next internals. So the form takes an
-**`onSuccess` callback**, and `app/login/login-route.tsx` — the one file that knows Next exists
-— supplies `router.push("/feed")`. The test substitutes its own "protected view" through the
-same seam, so it exercises the real form, the real schema, and the real request.
+This makes the interesting logic testable as what it actually is:
 
-The mock keys its response off the **email** (`packages/auth/src/login-form.mocks.ts`, colocated
-with the form), so a test picks its outcome by choosing who logs in rather than by rewiring
-handlers: `gooduser@dispatch.dev` → 200, `villainuser@dispatch.dev` → 401. Each package owns its
-own MSW server and handlers; the root `test/setup.ts` is generic (jsdom matchers + cleanup only),
-so a test stays as close to its target as possible instead of reaching into a shared registry.
+- **`verifyCredentials`** is a pure function, so it's unit-tested directly — no render at all.
+- **Client-side validation** is the form's own gate, so the test passes a *non-validating* fake
+  action and asserts it is **never called** for a bad payload (`vi.fn(...).not.toHaveBeenCalled()`).
+  That is the framework-free equivalent of the old "request was never made" assertion, and it
+  encodes the two-sided-validation intent (ADR-003) as a test: the backend is spared.
+- **Success / wrong-credentials** run through the real form against a fake action that stands in
+  for the server's business logic; the test swaps in its own "protected view" where the real app
+  would `redirect`.
 
-`onUnhandledRequest: "error"` means an unmocked endpoint fails the run loudly. That is what
-lets the validation test assert the request was **never made**, not merely that it failed.
+The one thing this *cannot* cover is the Next-specific glue — the cookie write and the redirect
+in the Server Action. That belongs to an E2E test (Playwright is available), not to jsdom;
+faking it in a unit test would only assert that the fake was called. The root `test/setup.ts`
+stays generic (jsdom matchers + cleanup only).
 
 Satisfies **B1**. The highest-value test is still the optimistic-rollback path (B3) once
-mutations exist; the same setup covers it.
+mutations exist; the same injected-seam approach covers it.
 
 ### ADR-008 — Feature-modular organization, gradually extracted — Accepted
 Code is organized **by feature, not by file type**, following the project's
