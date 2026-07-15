@@ -217,3 +217,23 @@ I think it's important to leave Load more/all buttons at the bottom (even disabl
 ---
 
 no need to point "all 1000 loaded" - I had it covered in another branch
+
+---
+
+read the @handoff.md
+
+---
+
+let's implement -
+
+---
+
+would be nice to update UI to show how many pages server has so with a small text under feed list area we show 3/400 - meaning in total 400 pages, loaded 3 - similar style like the chars remaining when creating a post.
+
+---
+
+let's palce pagination right under the list - right aligned
+
+---
+
+now rebase from main

@@ -9,6 +9,7 @@
 
 // Domain model — client-safe, framework-free.
 export {
+  FEED_PAGE_SIZE,
   TAGS,
   USERS,
   authorOf,

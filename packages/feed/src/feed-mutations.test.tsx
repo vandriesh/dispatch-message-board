@@ -54,7 +54,7 @@ const ADAM: FeedUser = {
   email: "adam@dispatch.dev",
 }
 
-const EMPTY_PAGE: OwnedFeedPage = { items: [], nextCursor: null }
+const EMPTY_PAGE: OwnedFeedPage = { items: [], nextCursor: null, total: 0 }
 
 function renderFeed(initialPage: OwnedFeedPage = EMPTY_PAGE) {
   const client = new QueryClient({

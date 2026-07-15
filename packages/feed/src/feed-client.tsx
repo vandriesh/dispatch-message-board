@@ -9,7 +9,12 @@ import { FeedEmpty } from "./feed-empty"
 import { useDeleteMessage, useEditMessage, usePostMessage } from "./feed-mutations"
 import { fetchMessagesPage, messagesKey } from "./feed-query"
 import { LoadMore } from "./load-more"
-import { type FeedFilters, type FeedUser, type MessageDraft } from "./message"
+import {
+  FEED_PAGE_SIZE,
+  type FeedFilters,
+  type FeedUser,
+  type MessageDraft,
+} from "./message"
 import { type FeedRow, type OwnedFeedPage } from "./rbac"
 
 /**
@@ -120,6 +125,15 @@ export function FeedClient({
 
   const rows = (query.data?.pages.flatMap((page) => page.items) ?? []) as FeedRow[]
 
+  // Loaded / total *page* count for the footer readout (like the composer's char
+  // counter). `total` is the filter's full match count, the same on every page, so
+  // total pages is ceil(total / page size); loaded pages is however many the
+  // infinite query has walked. Falls back to the server-rendered first page before
+  // the query cache is populated.
+  const total = query.data?.pages.at(-1)?.total ?? initialPage.total
+  const loadedPages = query.data?.pages.length ?? 1
+  const totalPages = Math.ceil(total / FEED_PAGE_SIZE)
+
   // App shell: the composer and the mobile filter stay pinned at the top, the
   // messages scroll in the space that's left, and LOAD MORE is parked at the
   // bottom. The parent `<section>` is a bounded-height flex column, so these are
@@ -162,6 +176,14 @@ export function FeedClient({
           />
         )}
       </div>
+
+      {/* Loaded / total pages — pinned right under the list, right-aligned to its
+          edge; mirrors the composer's char counter styling. */}
+      {totalPages > 0 && (
+        <p className="shrink-0 pt-1 text-right font-mono text-[13px] text-muted-foreground">
+          {loadedPages}/{totalPages} pages
+        </p>
+      )}
 
       {/* Kept mounted whenever the feed has rows — even fully loaded — so the
           disabled end-state tells the user they've reached the end (rather than

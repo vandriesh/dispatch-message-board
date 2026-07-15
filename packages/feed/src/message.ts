@@ -14,6 +14,14 @@
 export const TAGS = ["PRODUCT", "DESIGN", "RANDOM", "ANNOUNCE"] as const
 export type Tag = (typeof TAGS)[number]
 
+/**
+ * Rows per page — the single source for both the server default (`getMessages`)
+ * and the first server-rendered page (`page.tsx`), so the client, which fetches
+ * without an explicit `limit`, always walks the list in steps of this size. The
+ * feed's loaded/total *page* count (see FeedClient) is derived from it.
+ */
+export const FEED_PAGE_SIZE = 20
+
 export type FeedUser = {
   id: string // "u_adam" — u_${email localpart}
   handle: string // "adam"
@@ -74,10 +82,15 @@ export type FeedMessage = Message & { author: FeedUser }
 /** The editable slice a compose/edit produces — body + tag (F2/F3/F8). Client-safe. */
 export type MessageDraft = { body: string; tag: Tag }
 
-/** One page of the feed. `nextCursor` is null at the end of the list. */
+/**
+ * One page of the feed. `nextCursor` is null at the end of the list. `total` is
+ * the count of messages matching the active filter (not just this page) — the same
+ * on every page of a filter, so the client can show a loaded/total page count.
+ */
 export type FeedPage = {
   items: FeedMessage[]
   nextCursor: string | null
+  total: number
 }
 
 /**

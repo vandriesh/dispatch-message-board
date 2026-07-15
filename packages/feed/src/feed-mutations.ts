@@ -38,7 +38,7 @@ const mapItems = (
 const insertAtTop = (data: Cache, row: FeedRow): Cache =>
   data && data.pages.length > 0
     ? { ...data, pages: data.pages.map((p, i) => (i === 0 ? { ...p, items: [row, ...p.items] } : p)) }
-    : { pages: [{ items: [row], nextCursor: null }], pageParams: [null] }
+    : { pages: [{ items: [row], nextCursor: null, total: 1 }], pageParams: [null] }
 
 const removeRow = (data: Cache, id: string): Cache =>
   data ? mapItems(data, (items) => items.filter((m) => m.id !== id)) : data

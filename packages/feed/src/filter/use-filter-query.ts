@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { TAGS, type FeedFilters, type Tag } from "../message"
@@ -44,25 +45,41 @@ export function parseFilterParams(params: ReadableParams): FeedFilters {
  *
  * Extracted into a hook so both filter surfaces — the desktop rail and the mobile
  * cog panel — drive the same URL, rather than each re-deriving it.
+ *
+ * The `router.replace` runs inside a `startTransition`, so `isPending` stays true
+ * for the whole navigation — including the mock latency (~1.2s, ADR-005) the RSC
+ * page render waits out. The filter surfaces use it to show a pending indicator on
+ * the just-picked chip while the feed reloads.
  */
-export function useFilterQuery(): (patch: Partial<FeedFilters>) => void {
+export function useFilterQuery(): {
+  onFilterChange: (patch: Partial<FeedFilters>) => void
+  isPending: boolean
+} {
   const router = useRouter()
   const pathname = usePathname()
+  const [isPending, startTransition] = React.useTransition()
 
-  return function onFilterChange(patch: Partial<FeedFilters>) {
-    const params = new URLSearchParams(window.location.search)
+  const onFilterChange = React.useCallback(
+    (patch: Partial<FeedFilters>) => {
+      const params = new URLSearchParams(window.location.search)
 
-    for (const [field, next] of Object.entries(patch)) {
-      params.delete(field)
-      if (Array.isArray(next)) {
-        for (const item of next) params.append(field, item)
-      } else if (next) {
-        params.set(field, next)
+      for (const [field, next] of Object.entries(patch)) {
+        params.delete(field)
+        if (Array.isArray(next)) {
+          for (const item of next) params.append(field, item)
+        } else if (next) {
+          params.set(field, next)
+        }
       }
-    }
 
-    router.replace(pathname + (params.size ? `?${params}` : ""), {
-      scroll: false,
-    })
-  }
+      startTransition(() => {
+        router.replace(pathname + (params.size ? `?${params}` : ""), {
+          scroll: false,
+        })
+      })
+    },
+    [router, pathname]
+  )
+
+  return { onFilterChange, isPending }
 }

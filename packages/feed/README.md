@@ -55,7 +55,10 @@ the *same* id the session endpoint returns, so author-only edit/delete (F8/F9) w
 
 ## The contract
 
-`GET /api/messages` → `{ items: FeedMessage[], nextCursor: string | null }`
+`GET /api/messages` → `{ items: FeedMessage[], nextCursor: string | null, total: number }`
+
+`total` is the filter's full match count (the same on every page), so the feed can show a
+`loaded/total pages` readout — `ceil(total / FEED_PAGE_SIZE)` — without a second count request.
 
 | Param | Meaning |
 |---|---|
@@ -63,7 +66,7 @@ the *same* id the session endpoint returns, so author-only edit/delete (F8/F9) w
 | `tag` (repeatable) | one or more of `PRODUCT` `DESIGN` `RANDOM` `ANNOUNCE` (F5) |
 | `from` / `to` | inclusive date range, `YYYY-MM-DD` (F6) |
 | `cursor` | opaque `(createdAt, id)` — **cursor, not offset** (ADR-004) |
-| `limit` | page size, default 20, max 100 |
+| `limit` | page size, default/`FEED_PAGE_SIZE` 20, max 100 |
 
 Bad params → `400`. `author` is denormalized onto each item for display. Cursor, not offset,
 because the composer inserts at the top mid-scroll — an offset would double-serve or skip rows.
@@ -92,11 +95,14 @@ src/
   load-more.tsx     # "use client" — thin LOAD MORE / LOAD ALL buttons over fetchNextPage
   filter/           # the filter concern — URL-synced, so this is the one place that uses next/*
     feed-filters.tsx      # "use client" — presentational controls: FeedFilterPanel (rail),
-                          #   TagSelect (mobile single-select), UserDateFilter, tag chips, clear
+                          #   TagSelect (single-select chips, w/ optional `pending` spinner),
+                          #   UserDateFilter, clear
     use-filter-query.ts   # "use client" — the next/navigation glue: onFilterChange → router.replace
-    feed-filter-bar.tsx   # "use client" — desktop rail: FeedFilterPanel wired to the URL
+                          #   (in a useTransition; returns `isPending` for the pending indicator)
+    feed-filter-bar.tsx   # "use client" — desktop rail: FeedFilterPanel wired to the URL (optimistic tag)
     feed-filter-mobile.tsx # "use client" — mobile cog panel + the MRU single-select tag row
-    feed-section.tsx      # "use client" — holds the mobile recency/open state, renders FeedClient
+    feed-section.tsx      # "use client" — holds the mobile recency/open + optimistic selected tag,
+                          #   renders FeedClient
 ```
 
 ## Mutations & the optimistic overlay (ADR-005)

@@ -3,6 +3,7 @@ import "server-only"
 import { z } from "zod"
 
 import {
+  FEED_PAGE_SIZE,
   TAGS,
   authorOf,
   type FeedFilters,
@@ -11,7 +12,7 @@ import {
 } from "./message"
 import { messagesStore } from "./store"
 
-const DEFAULT_LIMIT = 20
+const DEFAULT_LIMIT = FEED_PAGE_SIZE
 // The whole store fits in one page, so `LOAD ALL` (the virtualization demo) can
 // pull every remaining row in a single request instead of walking 50 cursors.
 const MAX_LIMIT = 1000
@@ -80,5 +81,8 @@ export function getMessages(query: FeedQuery = {}): FeedPage {
   return {
     items: page.map((m) => ({ ...m, author: authorOf(m.createdBy)! })),
     nextCursor: hasMore && last ? encodeCursor(last) : null,
+    // The full match count (every page of this filter reports the same value), so
+    // the client can render loaded/total pages without a separate count request.
+    total: filtered.length,
   }
 }

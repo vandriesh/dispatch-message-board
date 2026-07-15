@@ -47,12 +47,13 @@ export async function GET(request: Request) {
 
   // Mock latency so `LOAD MORE` actually shows its loading state (ADR-005 latency).
   await mockLatency()
-  const { items, nextCursor } = getMessages(parsed.data)
+  const { items, nextCursor, total } = getMessages(parsed.data)
   // Stamp the per-viewer ownership flag here, where the session is available, so
   // appended rows carry the same F8/F9 affordance the first page gets (rbac).
   return Response.json({
     items: items.map((m) => withOwnership(m, session.id)),
     nextCursor,
+    total,
   })
 }
 

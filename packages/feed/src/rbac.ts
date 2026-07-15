@@ -40,8 +40,13 @@ export function isOwner(
  */
 export type OwnedMessage = FeedMessage & { owner: boolean }
 
-/** One page of owned messages — the shape `GET /api/messages` returns. */
-export type OwnedFeedPage = { items: OwnedMessage[]; nextCursor: string | null }
+/** One page of owned messages — the shape `GET /api/messages` returns. `total` is
+ * the filter's full match count, carried through for the loaded/total page count. */
+export type OwnedFeedPage = {
+  items: OwnedMessage[]
+  nextCursor: string | null
+  total: number
+}
 
 /**
  * A feed row as the client renders it: an `OwnedMessage` plus an optional

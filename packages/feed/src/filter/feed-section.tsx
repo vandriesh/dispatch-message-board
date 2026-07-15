@@ -21,6 +21,13 @@ import { FeedFilterMobile } from "./feed-filter-mobile"
  * `mobileTags` starts empty — the bar shows only the cog until a tag is picked
  * from the panel, at which point it's pushed to the front and the first three
  * show (see FeedFilterMobile).
+ *
+ * The active tag is held here too, optimistically. `FeedFilterMobile` lives inside
+ * the keyed `FeedClient`, so it can't hold its own optimistic selection across the
+ * remount; and the server `filters` prop only reflects the pick after the mock
+ * latency (~1.2s, ADR-005) commits — too late for the chip to light up on tap. So
+ * the selection is mirrored here (surviving the remount) and reconciled with the
+ * committed URL, mirroring the desktop rail's approach (feed-filter-bar.tsx).
  */
 export function FeedSection({
   initialPage,
@@ -34,6 +41,14 @@ export function FeedSection({
   const [mobileTags, setMobileTags] = React.useState<Tag[]>([])
   const [filtersOpen, setFiltersOpen] = React.useState(false)
 
+  const committedTag = filters.tag?.[0] ?? null
+  const [selectedTag, setSelectedTag] = React.useState<Tag | null>(committedTag)
+  // Re-sync when the URL commits for reasons other than our own tap (a shared
+  // link, Back); a no-op once our optimistic pick lands in `filters`.
+  React.useEffect(() => {
+    setSelectedTag(committedTag)
+  }, [committedTag])
+
   return (
     <FeedClient
       key={JSON.stringify(filters)}
@@ -45,6 +60,8 @@ export function FeedSection({
           value={filters}
           mobileTags={mobileTags}
           onMobileTagsChange={setMobileTags}
+          selected={selectedTag}
+          onSelectedChange={setSelectedTag}
           open={filtersOpen}
           onOpenChange={setFiltersOpen}
         />

@@ -30,31 +30,37 @@ const VISIBLE_TAGS = 3
  *   - picking the tag that's already active unselects it (clears the filter),
  *     leaving its chip in the list.
  *
- * Controlled so the list and the open state survive `FeedClient`'s per-filter
- * remount (see FeedSection). The active filter itself lives in the query string
- * (via `useFilterQuery`).
+ * Controlled so the list, the open state, and the optimistic `selected` tag all
+ * survive `FeedClient`'s per-filter remount (see FeedSection). The active filter
+ * still lives in the query string (via `useFilterQuery`); `selected` is the
+ * optimistic mirror that lights the chip up on tap, before the URL commits.
  */
 export function FeedFilterMobile({
   value,
   mobileTags,
   onMobileTagsChange,
+  selected,
+  onSelectedChange,
   open,
   onOpenChange,
 }: {
   value: FeedFilters
   mobileTags: Tag[]
   onMobileTagsChange: (next: Tag[]) => void
+  selected: Tag | null
+  onSelectedChange: (tag: Tag | null) => void
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const onFilterChange = useFilterQuery()
+  const { onFilterChange, isPending } = useFilterQuery()
 
-  const selected = value.tag?.[0] ?? null
   const visible = mobileTags.slice(0, VISIBLE_TAGS)
+  const pending = isPending ? selected : null
 
   function selectTag(tag: Tag) {
     if (tag === selected) {
-      onFilterChange({ tag: undefined }) // clicking the active tag unselects it
+      onSelectedChange(null) // clicking the active tag unselects it
+      onFilterChange({ tag: undefined })
       return
     }
     // First time a tag is picked it joins the front of the list (pushing any
@@ -62,6 +68,7 @@ export function FeedFilterMobile({
     if (!mobileTags.includes(tag)) {
       onMobileTagsChange([tag, ...mobileTags])
     }
+    onSelectedChange(tag)
     onFilterChange({ tag: [tag] })
   }
 
@@ -72,6 +79,7 @@ export function FeedFilterMobile({
         <TagSelect
           tags={visible}
           selected={selected}
+          pending={pending}
           onSelect={selectTag}
           className="min-w-0 flex-1 flex-nowrap overflow-x-auto"
         />
@@ -106,7 +114,12 @@ export function FeedFilterMobile({
               <div className="mb-[10px] font-mono text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
                 Tag
               </div>
-              <TagSelect tags={TAGS} selected={selected} onSelect={selectTag} />
+              <TagSelect
+                tags={TAGS}
+                selected={selected}
+                pending={pending}
+                onSelect={selectTag}
+              />
             </div>
             <UserDateFilter value={value} onFilterChange={onFilterChange} />
             <ClearButton onClick={() => onFilterChange(CLEARED_FILTERS)} />

@@ -100,6 +100,18 @@ filtering during render, so the first paint is already filtered — no client ro
 **Consequence:** filter controls are links/`router.replace` calls, not local state. Date &
 time is a **range** (`from`/`to`) — a single instant isn't a useful filter (O3).
 
+**Refinement — an optimistic *mirror*, not a second source of truth.** The URL stays
+authoritative, but the tag `router.replace` only commits after the mock latency (~1.2s, ADR-005),
+and the filter controls are not swapped for `loading.tsx` during that window — a client
+transition keeps the old UI on screen. Reading the highlight straight from the URL/prop would
+therefore lag a full second behind the tap (and let a quick re-tap toggle against stale state).
+So the selected tag is held in local state, updated on the same click that writes the URL, and
+reconciled back *from* the URL via an effect (shared link, Back). Desktop keeps this in
+`feed-filter-bar.tsx`; mobile lifts it to `feed-section.tsx`, above the per-filter `FeedClient`
+remount, so a pick survives it. The same `router.replace` runs inside a `useTransition`
+(`useFilterQuery` exposes `isPending`), and the just-picked chip shows a spinner over its accent
+fill for the whole reload — the label is hidden but keeps its box, so nothing shifts.
+
 ### ADR-003 — Auth: cookie session; `proxy.ts` for redirects only — Proposed
 Login (F1) is a real credential form — the design shows `EMAIL` and `PASSWORD` fields, not a
 user picker. Seeded accounts use the convention **password == email** (e.g.
@@ -179,6 +191,15 @@ rendered, and nothing re-rendered it afterward (it looked like an empty feed und
 sized scrollbar). Fix: the scroller is held in **state via a callback ref** (`setScrollEl`) and
 the *element* is threaded to `Feed`; setting state re-renders once the node exists, and the
 virtualizer picks it up. A ref object only works when the virtualizer owns the scroller itself.
+
+**Loaded / total page readout.** Under the list, a small `loaded/total pages` line (styled like
+the composer's char counter) tells the user how much of the filtered result they've walked. The
+read contract carries a `total` — the filter's full match count, identical on every page, so
+`getMessages` returns it for free (it already computes the filtered array). The client derives
+total pages as `ceil(total / FEED_PAGE_SIZE)` and loaded pages as the infinite query's page
+count. One shared `FEED_PAGE_SIZE` backs the server default, the first server-rendered page, and
+this math, so the client — which fetches without an explicit `limit` — can't drift out of step
+with the server's page size.
 
 ### ADR-005 — Optimistic UI with real rollback — Accepted
 Post/edit/delete (B3) apply immediately against the TanStack Query cache, then reconcile with

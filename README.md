@@ -70,8 +70,10 @@ Full reasoning and trade-offs live in [_ARCHITECTURE.md](_ARCHITECTURE.md) — t
 
 - **Mocked backend behind real route handlers**, not a fake array imported into components —
   so the frontend↔backend contract is explicit and swappable.
-- **The URL is the single source of truth for filters.** No `useState` mirror of filter
-  state, so shareable/bookmarkable views come for free and can't drift out of sync.
+- **The URL is the single source of truth for filters.** No standing `useState` mirror of
+  filter state, so shareable/bookmarkable views come for free and can't drift out of sync; the
+  active tag is only *optimistically* mirrored so its chip lights up (with a pending spinner)
+  on tap instead of after the ~1.2s reconcile, then re-syncs from the URL (see ADR-002).
 - **The auth boundary is real even though auth is mocked.** Next 16's `proxy.ts` handles only
   the optimistic redirect; author-only edit/delete is enforced server-side in the route
   handler, where it can't be bypassed.

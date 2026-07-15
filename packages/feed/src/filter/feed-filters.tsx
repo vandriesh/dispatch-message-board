@@ -9,6 +9,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
   cn,
 } from "@dmb/ui-kit"
 
@@ -31,35 +32,50 @@ export const CLEARED_FILTERS: Partial<FeedFilters> = {
  * a time. Shared by the desktop rail (all four chips) and the mobile bar/panel
  * (a subset). The caller owns which tags to render and what a select means —
  * both surfaces treat clicking the active chip as clearing it.
+ *
+ * `pending` marks the chip whose selection is still committing (the URL navigation
+ * waits out the mock latency, ADR-005). It overlays a spinner *on top of* the
+ * accent fill without replacing it: the label is hidden but keeps its box, so the
+ * chip neither loses its highlight nor changes width mid-flight.
  */
 export function TagSelect({
   tags,
   selected,
   onSelect,
+  pending,
   className,
 }: {
   tags: readonly Tag[]
   selected: Tag | null
   onSelect: (tag: Tag) => void
+  pending?: Tag | null
   className?: string
 }) {
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
-      {tags.map((tag) => (
-        <Badge
-          key={tag}
-          variant={selected === tag ? "default" : "outline"}
-          render={
-            <button
-              type="button"
-              aria-pressed={selected === tag}
-              onClick={() => onSelect(tag)}
-            />
-          }
-        >
-          {tag}
-        </Badge>
-      ))}
+      {tags.map((tag) => {
+        const isPending = pending === tag
+        return (
+          <Badge
+            key={tag}
+            variant={selected === tag ? "default" : "outline"}
+            className="relative"
+            render={
+              <button
+                type="button"
+                aria-pressed={selected === tag}
+                aria-busy={isPending}
+                onClick={() => onSelect(tag)}
+              />
+            }
+          >
+            <span className={isPending ? "invisible" : undefined}>{tag}</span>
+            {isPending && (
+              <Spinner className="absolute size-3 text-current" />
+            )}
+          </Badge>
+        )
+      })}
     </div>
   )
 }
@@ -150,9 +166,11 @@ export function UserDateFilter({
 export function FeedFilterPanel({
   value,
   onFilterChange,
+  pending,
 }: {
   value: FeedFilters
   onFilterChange: (patch: Partial<FeedFilters>) => void
+  pending?: Tag | null
 }) {
   const selectedTag = value.tag?.[0] ?? null
 
@@ -168,6 +186,7 @@ export function FeedFilterPanel({
         <TagSelect
           tags={TAGS}
           selected={selectedTag}
+          pending={pending}
           onSelect={(tag) =>
             onFilterChange({ tag: tag === selectedTag ? undefined : [tag] })
           }

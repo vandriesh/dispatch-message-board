@@ -24,7 +24,7 @@ import { parseFilterParams, useFilterQuery } from "./use-filter-query"
  */
 export function FeedFilterBar() {
   const searchParams = useSearchParams()
-  const onFilterChange = useFilterQuery()
+  const { onFilterChange, isPending } = useFilterQuery()
   const urlFilters = parseFilterParams(searchParams)
 
   const urlTags = urlFilters.tag ?? []
@@ -40,6 +40,7 @@ export function FeedFilterBar() {
   return (
     <FeedFilterPanel
       value={{ ...urlFilters, tag: tags.length > 0 ? tags : undefined }}
+      pending={isPending ? (tags[0] ?? null) : null}
       onFilterChange={(patch) => {
         if ("tag" in patch) setTags(patch.tag ?? [])
         onFilterChange(patch)

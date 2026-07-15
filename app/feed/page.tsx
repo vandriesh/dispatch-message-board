@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/app/(auth)/session"
 
 import {
+  FEED_PAGE_SIZE,
   FeedFilterBar,
   FeedSection,
   TAGS,
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   title: "Feed — Dispatch",
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = FEED_PAGE_SIZE
 const TAG_SET = new Set<string>(TAGS)
 
 type SearchParams = Record<string, string | string[] | undefined>
@@ -73,10 +74,11 @@ export default async function FeedPage({
 
   const filters = parseFilters(await searchParams)
   await mockLatency()
-  const { items, nextCursor } = getMessages({ ...filters, limit: PAGE_SIZE })
+  const { items, nextCursor, total } = getMessages({ ...filters, limit: PAGE_SIZE })
   const initialPage = {
     items: items.map((m) => withOwnership(m, session.id)),
     nextCursor,
+    total,
   }
   const currentUser = userFromIdentity(session)
 
