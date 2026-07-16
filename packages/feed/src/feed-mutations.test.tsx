@@ -13,14 +13,10 @@ import { type FeedUser } from "./message"
 import { type OwnedFeedPage } from "./rbac"
 
 /**
- * The feed list is virtualized (`@tanstack/react-virtual`, B2), which reads real
- * layout: jsdom has none, so without a viewport height the virtualizer renders an
- * empty window and no row — optimistic or otherwise — is on screen. `virtual-core`
- * measures both the scroll viewport and each row via `offsetHeight`/`offsetWidth`
- * (jsdom hard-codes these to 0), so give every element a non-zero size and add a
- * no-op ResizeObserver so a window actually paints. Scoped to this file (the only
- * one that mounts the virtualized FeedClient); set at module load so
- * `vi.unstubAllGlobals` in afterEach can't clear them mid-suite.
+ * The virtualizer reads real layout, and jsdom has none (`offsetHeight` is 0),
+ * so without these stubs it renders an empty window and no row is ever on
+ * screen. Set at module load so `vi.unstubAllGlobals` in afterEach can't clear
+ * them mid-suite.
  */
 globalThis.ResizeObserver = class {
   observe() {}
@@ -37,14 +33,10 @@ Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
 })
 
 /**
- * The highest-value test in the project (per _ARCHITECTURE.md's "Next steps"): the
- * optimistic-rollback path (B3, ADR-005). Not a render snapshot — the logic most
- * likely to break silently. We drive a post against a forced server failure and
- * assert the row appears immediately, then rolls back, with the error surfaced.
- *
- * `fetch` is stubbed rather than reaching MSW: the mutation only needs a controlled
- * response, and a small delay makes the optimistic window deterministic to observe
- * (the row is present *during* the in-flight request, gone after it rejects).
+ * The optimistic-rollback path — the logic most likely to break silently.
+ * `fetch` is stubbed with a small delay so the optimistic window is
+ * deterministic to observe: the row is present *during* the in-flight request,
+ * gone after it rejects.
  */
 
 const ADAM: FeedUser = {

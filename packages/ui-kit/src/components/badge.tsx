@@ -4,13 +4,8 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@dmb/ui-kit/lib/utils"
 
-/**
- * The tag chip — PRODUCT, DESIGN, RANDOM, ANNOUNCE.
- *
- * Measured: a 2px-bordered span, 11–12px Space Mono, ~5px/10px padding. The only
- * thing distinguishing the selected tag from the rest is the accent fill, so
- * `default` is the selected state and `outline` is the resting one.
- */
+// The tag chip. `default` is the selected state, `outline` the resting one —
+// the accent fill is the only thing distinguishing them.
 const badgeVariants = cva(
   [
     "group/badge inline-flex w-fit shrink-0 items-center justify-center gap-1",

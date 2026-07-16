@@ -1,13 +1,7 @@
 import { Skeleton } from "@dmb/ui-kit"
 
-/**
- * One resting card's shape (simple-card.tsx): a 3px ink tile with 18px padding
- * and no shadow, an avatar beside name/handle, the body, then the tag.
- *
- * Born in app/feed/loading.tsx as the streamed placeholder row; hoisted here on
- * its second consumer — /ui-kit shows the real state components, not replicas,
- * so the gallery can't drift from what the feed actually renders.
- */
+// One resting card's shape, mirroring simple-card.tsx. Shared by the feed's
+// loading state and /ui-kit, which shows the real component, not a replica.
 export function MessageSkeleton() {
   return (
     <div className="border-[3px] border-ink bg-surface p-[18px]">

@@ -9,18 +9,9 @@ import { CardHeader, SimpleCard } from "./simple-card"
 const MAX = 240
 
 /**
- * The author's own card — the one place the edit/delete UI state machine lives
- * (F8/F9). It renders one of three presentational shapes and owns nothing but that
- * local UI state: `EditCard` while editing, otherwise `SimpleCard` (variant
- * "owner") with either the resting EDIT/DELETE controls or the two-step delete
- * confirmation in its actions slot. Non-authors never reach here — the list
- * renders a plain `SimpleCard` for them.
- *
- * The *data* changes are optimistic and live one level up: `onEdit`/`onDelete`
- * apply to the TanStack Query cache immediately and reconcile with the server
- * (ADR-005), so this card just fires the intent and lets the row's `pending` flag
- * (and, on failure, the feed's error banner + rollback) tell the story. A pending
- * row shows resting and dimmed with no controls until the server answers.
+ * The author's own card: the edit / two-step-delete UI state machine. The data
+ * changes are optimistic and live one level up — this card only fires the
+ * intent; a pending row shows dimmed with no controls until the server answers.
  */
 export function OwnerMessageCard({
   message,
@@ -95,12 +86,8 @@ export function OwnerMessageCard({
   )
 }
 
-/**
- * The editing layout — a self-contained form owning only its draft. It calls
- * `onSave` with the trimmed body; the optimistic write and any error live in the
- * parent chain. Shares `CardHeader` with SimpleCard so the two stay identical.
- * Body-only by design (the tag is fixed at post time, F3).
- */
+// Owns only its draft, so typing re-renders this row and not the other 999.
+// Body-only by design: the tag is fixed at post time.
 function EditCard({
   message,
   onSave,

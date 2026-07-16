@@ -15,11 +15,10 @@ import {
 import { TAGS, USERS, type FeedFilters, type Tag } from "../message"
 import { DateTimeField, parseBound } from "./date-time-field"
 
-// Sentinel for the user dropdown's "show everyone" option — selecting it clears
-// the owner filter rather than filtering to a user named "all".
+// Sentinel for the dropdown's "show everyone" option — selecting it clears the
+// user filter.
 const ALL_USERS = "all"
 
-/** The patch that resets every filter. */
 export const CLEARED_FILTERS: Partial<FeedFilters> = {
   tag: undefined,
   user: undefined,
@@ -28,15 +27,9 @@ export const CLEARED_FILTERS: Partial<FeedFilters> = {
 }
 
 /**
- * Tag chips (F5) — presentational, radio behaviour: exactly one tag is active at
- * a time. Shared by the desktop rail (all four chips) and the mobile bar/panel
- * (a subset). The caller owns which tags to render and what a select means —
- * both surfaces treat clicking the active chip as clearing it.
- *
- * `pending` marks the chip whose selection is still committing (the URL navigation
- * waits out the mock latency, ADR-005). It overlays a spinner *on top of* the
- * accent fill without replacing it: the label is hidden but keeps its box, so the
- * chip neither loses its highlight nor changes width mid-flight.
+ * Tag chips, radio behaviour: one tag active at a time; clicking the active
+ * chip clears it. `pending` overlays a spinner while the selection commits —
+ * the label keeps its box, so the chip doesn't change width mid-flight.
  */
 export function TagSelect({
   tags,
@@ -80,11 +73,8 @@ export function TagSelect({
   )
 }
 
-/**
- * The owner dropdown (F7) and date range (F6) — the filters that don't collapse
- * to a chip. On mobile these live behind the cog; on desktop they sit under the
- * tags in the rail.
- */
+// The filters that don't collapse to a chip: on mobile these live behind the
+// cog, on desktop under the tags in the rail.
 export function UserDateFilter({
   value,
   onFilterChange,
@@ -149,15 +139,9 @@ export function UserDateFilter({
 }
 
 /**
- * The filter sidebar (F5/F6/F7) — presentational, laid out to the reference
- * design's desktop `FILTERS` rail: a borderless column on the gray page, with a
- * `clear` affordance, tag chips, a user dropdown, and a stacked date range. It
- * reports changes through `onFilterChange({ [field]: values })` and knows nothing
- * about the URL — that lives in the container (app/feed/feed-filter-bar.tsx),
- * the same seam @dmb/auth uses to keep `next/*` out of the feature package.
- *
- * It composes `TagSelect` and `UserDateFilter`; the mobile layout reuses those
- * two pieces directly around a cog toggle (filter/feed-filter-mobile.tsx).
+ * The desktop filter rail — presentational, knows nothing about the URL (that
+ * lives in the container, keeping `next/*` out of this package). The mobile
+ * layout reuses TagSelect and UserDateFilter around the cog toggle.
  */
 export function FeedFilterPanel({
   value,
@@ -194,7 +178,6 @@ export function FeedFilterPanel({
   )
 }
 
-/** The `clear` link — shared by the desktop rail header and the mobile panel. */
 export function ClearButton({ onClick }: { onClick: () => void }) {
   return (
     <button

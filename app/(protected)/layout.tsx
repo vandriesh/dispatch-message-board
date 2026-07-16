@@ -12,19 +12,11 @@ import { getSession } from "@/app/(auth)/session";
 import { logoutAction } from "@/app/(auth)/logout/actions";
 
 /**
- * The authenticated app shell — the top bar, and the one session read that needs
- * it. It lives here rather than in the root layout on purpose: `getSession()`
- * reads `cookies()`, and a Dynamic API anywhere in a route's tree opts that whole
- * route out of static rendering. In the root layout it did that to *every* page,
- * including `/login` and `/ui-kit`, which have no per-request data at all. Scoped
- * to this group, only the routes that actually need the session pay for it.
- *
- * `(protected)` is a route group: the parens keep it out of the URL, so
- * `(protected)/feed` still serves `/feed`. The name describes the shell, not the
- * enforcement — a layout is NOT a security boundary (it doesn't re-render on
- * client navigation between siblings). The real gates stay where they are: the
- * `redirect` in `feed/page.tsx` and the session check in every `/api/messages`
- * handler.
+ * The top bar and the one session read that needs it — scoped to this route
+ * group so the `cookies()` call doesn't opt /login and /ui-kit out of static
+ * rendering. The name describes the shell, not enforcement: a layout is NOT a
+ * security boundary — the real gates are the redirect in feed/page.tsx and the
+ * session check in every /api/messages handler.
  */
 export default async function ProtectedLayout({
   children,

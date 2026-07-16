@@ -4,17 +4,9 @@ import { Avatar, AvatarFallback, Badge } from "@dmb/ui-kit"
 import { type FeedMessage } from "./message"
 
 /**
- * The resting message card — pure presentation, no branching. It renders the
- * chrome (header, body, tag) and exposes an actions slot via `children`, so the
- * owner card can drop EDIT/DELETE (or the delete confirmation) in without
- * SimpleCard knowing anything about ownership. `variant="owner"` wears the accent
- * (yellow avatar + filled tag, F8); everyone else's posts render on surface.
- *
- * No `"use client"`: it holds no state, so the same component renders in the
- * Server-Component list for non-owners and inside the client owner card alike.
- *
- * Layout is measured from the reference design: a 3px ink-bordered white tile
- * with 18px padding and — unlike the composer — no shadow.
+ * The resting message card — pure presentation with an actions slot
+ * (`children`), so the owner card can drop EDIT/DELETE in without SimpleCard
+ * knowing anything about ownership.
  */
 export function SimpleCard({
   message,
@@ -60,11 +52,7 @@ export function SimpleCard({
   )
 }
 
-/**
- * The card header — avatar tile + name / @handle beside the relative time. Shared
- * by SimpleCard and the edit layout so the two can't drift. `variant` tints the
- * viewer's own avatar with the accent (F8).
- */
+// Shared by SimpleCard and the edit layout so the two can't drift.
 export function CardHeader({
   message,
   variant,

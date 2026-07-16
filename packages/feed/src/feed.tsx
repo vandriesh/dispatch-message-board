@@ -8,40 +8,16 @@ import { type FeedRow } from "./rbac"
 import { SimpleCard } from "./simple-card"
 
 /**
- * The feed list (F4, B2) — presentational over already-fetched, already-filtered
- * rows, virtualized with `@tanstack/react-virtual` so 1000+ entries stay smooth
- * (ADR-004/006). It renders only the visible window plus `OVERSCAN`, absolutely
- * positioned inside a spacer sized to the whole list, so the DOM holds a few dozen
- * rows no matter how many the query has loaded.
- *
- * The scroll container is **not** owned here: `FeedClient` owns the app-shell
- * scroll region and hands the resolved element down (`scrollElement`), so the
- * virtualizer measures the product's own markup rather than introducing a second
- * scroller. It's passed as the *element* (state-backed via a callback ref), not a
- * ref object: the scroller is the parent of this component, and a parent's ref is
- * attached only *after* this child's layout effects run — so a plain ref would
- * read `null` when the virtualizer first measures and never recover. Threading the
- * element through state re-renders this component once it exists, and the
- * virtualizer picks it up.
- *
- * Rows change height — a message wraps to 1–4 lines, and an owner row grows when
- * it enters edit mode — so heights are **measured**, not estimated: each row wraps
- * `measureElement`, and the virtualizer re-measures on resize. `estimateSize` is
- * only the first-paint guess before real heights land.
- *
- * Auto-fetch-on-approach (ADR-004) lives here too, because in a virtualized list
- * the classic IntersectionObserver sentinel never renders and so can never
- * intersect: instead, when the last virtual row reaches the end of the loaded
- * array, `onNeedMore` advances the cursor. The LOAD MORE / LOAD ALL buttons in
- * `FeedClient` remain the focusable, announceable baseline on top of this.
+ * The virtualized feed list: the DOM holds a few dozen rows no matter how many
+ * are loaded. Row heights are measured, not estimated — a message wraps to 1–4
+ * lines and an owner row grows in edit mode. Infinite scroll lives here rather
+ * than on an IntersectionObserver sentinel, because in a virtualized list a
+ * sentinel never renders and so can never intersect.
  */
 
-// A first-paint height guess (~header + one line + tag row + the 20px gap). Real
-// heights replace it as each row measures, so this only affects the initial
-// scrollbar before measurement settles.
+// First-paint height guess; real measurements replace it.
 const ESTIMATED_ROW = 172
-// Rows kept mounted above and below the viewport, so a fast scroll doesn't flash
-// blank before the next window paints.
+// Rows kept mounted past the viewport so a fast scroll doesn't flash blank.
 const OVERSCAN = 8
 
 export function Feed({
@@ -70,16 +46,15 @@ export function Feed({
     getScrollElement: () => scrollElement,
     estimateSize: () => ESTIMATED_ROW,
     overscan: OVERSCAN,
-    // Keyed by message id so the virtualizer's measurement cache follows a row
-    // across inserts (a new optimistic post at the top) rather than by position.
+    // Keyed by id, not position, so the measurement cache follows a row when an
+    // optimistic post is inserted at the top.
     getItemKey: (index) => data[index].id,
   })
 
   const virtualItems = virtualizer.getVirtualItems()
 
-  // Auto-fetch: once the last loaded row is within the rendered window, pull the
-  // next page. Guarded on `hasNextPage`/`isFetchingNextPage` so it fires once per
-  // page rather than every scroll frame; React Query dedupes the button path too.
+  // Infinite scroll: once the last loaded row enters the rendered window, pull
+  // the next page.
   const lastIndex = virtualItems.at(-1)?.index
   React.useEffect(() => {
     if (lastIndex === undefined) return

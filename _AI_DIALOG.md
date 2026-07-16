@@ -233,3 +233,14 @@ mobile filter should be initialised with tag from url
 ---
 
 done - commit
+
+---
+
+Okay, the AI added a ton of comments. I need to remove most of the comments and leave only those that explain, for instance,:
+
+* the necessity of load all button;
+
+* How mobile filter works;
+* mostly decision to add improvements;
+
+the rest of AI comments are just extra I think - the code is pretty much self- explanatory

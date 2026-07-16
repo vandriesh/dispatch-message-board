@@ -2,15 +2,8 @@ import { cookies } from "next/headers"
 
 import type { SessionUser } from "@dmb/auth"
 
-/**
- * The session cookie — the Next-specific half of auth, grouped here under
- * (auth) with the rest of the framework-bound auth glue.
- *
- * A mock session: the signed-in user's id + email in an httpOnly cookie. Not a
- * security exercise (there's no signing), but the *shape* is the real one — an
- * httpOnly cookie the client can't read, set and cleared server-side. Swapping
- * in a real signed/encrypted session token is a change to this file alone.
- */
+// A mock session: id + email in an httpOnly cookie. No signing, but the shape
+// is real — swapping in a signed token is a change to this file alone.
 const COOKIE = "dmb_session"
 const MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 

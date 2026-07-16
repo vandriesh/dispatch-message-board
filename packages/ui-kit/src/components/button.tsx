@@ -4,17 +4,9 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@dmb/ui-kit/lib/utils"
 
 /**
- * Geometry lives on `size`, colour lives on `variant`.
- *
- * Both scales are measured off the reference design rather than invented. Two
- * rules fell out of those measurements and are worth naming, because they are
- * not obvious and are easy to "tidy up" into being wrong:
- *
- *  1. Border width grows with the control — 2px at 34px tall, 2.5px at 40px,
- *     3px at 42px and above.
- *  2. The offset shadow only appears at >= 42px. The small controls (EDIT,
- *     DELETE, LOG OUT) are flat. Giving `sm` a shadow would look more
- *     "consistent" and would not match the design.
+ * Two measured design rules, easy to "tidy up" into being wrong: border width
+ * grows with the control (2px → 2.5px → 3px), and the offset shadow only
+ * appears at >= 42px — the small controls are deliberately flat.
  */
 const buttonVariants = cva(
   [

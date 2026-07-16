@@ -17,20 +17,6 @@ import {
 } from "./message"
 import { type FeedRow, type OwnedFeedPage } from "./rbac"
 
-/**
- * The feed's client container — the one place the whole right column's data lives.
- * It replaces the old split where page 1 was a Server Component and pages 2..n sat
- * in `LoadMore`'s own state: post/edit/delete and the optimistic overlay need a
- * *single* list, so it owns the `useInfiniteQuery` and passes mutation handlers to
- * the composer and each row.
- *
- * The server-rendered first page is handed in as `initialData` and hydrated into
- * the cache rather than refetched (Q1: "hydrated, not fetched twice"). Its rows
- * are already `owner`-stamped at the server boundary (rbac) so each card can
- * branch on ownership without the client re-deriving it. The query key carries the
- * active filters, so a filter change is a new query (and the page remounts this per
- * filter set anyway, ADR-004).
- */
 export function FeedClient({
   initialPage,
   filters,
@@ -40,20 +26,17 @@ export function FeedClient({
   initialPage: OwnedFeedPage
   filters: FeedFilters
   currentUser: FeedUser
-  /** The mobile cog filter (app-supplied, URL-aware), pinned under the composer
-   * below `lg`. Passed in as an element so the package stays free of `next/*`. */
+  /** The mobile cog filter, passed in as an element so the package stays free
+   * of `next/*`. */
   mobileFilter?: React.ReactNode
 }) {
-  // A single active error, tagged with where it belongs — the composer (a failed
-  // post, whose optimistic row has already rolled back) or a specific row (a failed
-  // edit/delete, which the rollback just restored). It renders under that element
-  // rather than in one banner, so the message sits with the thing that caused it.
+  // Errors render under what caused them (the composer, or that row) rather
+  // than in one banner.
   const [error, setError] = React.useState<
     { message: string; target: "compose" | { id: string } } | null
   >(null)
-  // A rejected post hands its draft back so the composer can refill rather than
-  // lose the text. Identity changes per failure, which is how the composer knows
-  // to re-apply it.
+  // A rejected post hands its draft back so the composer refills instead of
+  // losing the text.
   const [rejectedDraft, setRejectedDraft] = React.useState<MessageDraft | null>(null)
   const onComposeError = React.useCallback(
     (message: string, draft: MessageDraft) => {
@@ -72,18 +55,13 @@ export function FeedClient({
       : null
   const composeError = error?.target === "compose" ? error.message : null
 
-  // The scroll region the virtualizer measures. Owned here (the app shell), not by
-  // `Feed` — the list renders into this product-owned scroller rather than adding
-  // its own (B2, ADR-004). Held in state via a callback ref, not a ref object: the
-  // scroller is `Feed`'s parent, and a parent's ref attaches only after the child's
-  // layout effects run, so a ref object would be null when the virtualizer first
-  // measures. Setting state re-renders once the node exists so `Feed` receives it.
+  // The virtualizer's scroll region. A callback ref, not a ref object: a
+  // parent's ref attaches after the child's layout effects, too late for the
+  // virtualizer's first measure.
   const [scrollEl, setScrollEl] = React.useState<HTMLDivElement | null>(null)
 
-  // Per-fetch page size, read by the query fn. Normally null → the server default
-  // (20) for LOAD MORE and auto-fetch; LOAD ALL bumps it to pull every remaining
-  // row in one request, then resets it. A ref (not state) so changing it doesn't
-  // re-run the query — only the next fetch reads it.
+  // Per-fetch page size; LOAD ALL bumps it for one request. A ref so changing
+  // it doesn't re-run the query.
   const pageSizeRef = React.useRef<number | null>(null)
 
   const query = useInfiniteQuery({
@@ -94,15 +72,13 @@ export function FeedClient({
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     initialData: { pages: [initialPage], pageParams: [null] },
     staleTime: 30_000,
-    // The cache is authoritative and mutated in place (ADR-005); a focus refetch
-    // would re-slice loaded pages with the default limit and drop LOAD ALL's rows
-    // (and any optimistic state), so don't.
+    // A focus refetch would re-slice loaded pages at the default limit and drop
+    // LOAD ALL's rows and any optimistic state.
     refetchOnWindowFocus: false,
   })
 
-  // LOAD ALL — fill the list so the virtualization is demonstrable without 50
-  // LOAD MORE clicks. With the large page size this is one request; the loop only
-  // iterates if a small auto-fetch page was deduped in first.
+  // LOAD ALL exists so the virtualization is demonstrable without 50 LOAD MORE
+  // clicks: one large-page request fills the feed.
   const [isLoadingAll, setIsLoadingAll] = React.useState(false)
   const onLoadAll = React.useCallback(async () => {
     setIsLoadingAll(true)
@@ -125,30 +101,16 @@ export function FeedClient({
 
   const rows = (query.data?.pages.flatMap((page) => page.items) ?? []) as FeedRow[]
 
-  // Loaded / total *page* count for the footer readout (like the composer's char
-  // counter). `total` is the filter's full match count, the same on every page, so
-  // total pages is ceil(total / page size). Falls back to the server-rendered
-  // first page before the query cache is populated.
-  //
-  // Both sides are counted in pages *of `FEED_PAGE_SIZE` rows* — which is why
-  // loaded pages is derived from the rows, not from `data.pages.length`. Those
-  // agree only while every fetch uses the default size, and LOAD ALL deliberately
-  // doesn't: it pulls every remaining row in one large page, leaving the query
-  // with 2 pages holding all 51 pages' worth. The readout read "2/51" with
-  // nothing left to load.
+  // Loaded pages derives from the row count, not `data.pages.length` — LOAD ALL
+  // pulls everything in one large page, which would read "2/51". Clamped because
+  // an optimistic insert can briefly exceed the server's total.
   const total = query.data?.pages.at(-1)?.total ?? initialPage.total
   const totalPages = Math.ceil(total / FEED_PAGE_SIZE)
-  // Clamped: an optimistic insert can push the row count past the server's
-  // `total` for the length of the in-flight window (ADR-005).
   const loadedPages = Math.min(
     Math.ceil(rows.length / FEED_PAGE_SIZE),
     totalPages
   )
 
-  // App shell: the composer and the mobile filter stay pinned at the top, the
-  // messages scroll in the space that's left, and LOAD MORE is parked at the
-  // bottom. The parent `<section>` is a bounded-height flex column, so these are
-  // its direct flex children (the fragment adds no box).
   return (
     <>
       <div className="shrink-0">
@@ -188,17 +150,14 @@ export function FeedClient({
         )}
       </div>
 
-      {/* Loaded / total pages — pinned right under the list, right-aligned to its
-          edge; mirrors the composer's char counter styling. */}
       {totalPages > 0 && (
         <p className="shrink-0 pt-1 text-right font-mono text-[13px] text-muted-foreground">
           {loadedPages}/{totalPages} pages
         </p>
       )}
 
-      {/* Kept mounted whenever the feed has rows — even fully loaded — so the
-          disabled end-state tells the user they've reached the end (rather than
-          the control silently vanishing). */}
+      {/* Kept mounted even when fully loaded: the disabled end-state tells the
+          user they've reached the end, instead of the control vanishing. */}
       {rows.length > 0 && (
         <div className="flex shrink-0 justify-center pt-1">
           <LoadMore

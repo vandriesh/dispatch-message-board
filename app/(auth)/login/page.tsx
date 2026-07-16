@@ -9,21 +9,10 @@ export const metadata: Metadata = {
 }
 
 /**
- * Static (prerendered). The markup is identical for every visitor — there is no
- * session yet, by definition — so nothing here reads request data. See Q1 in
- * _ARCHITECTURE.md; in particular, do NOT call `cookies()` here to bounce an
- * already-authenticated user. That check belongs in proxy.ts, and doing it here
- * would silently turn this page dynamic.
- *
- * `loginAction` is a Server Action passed to the (client) form as a prop — the
- * canonical way to keep @dmb/auth free of `next/*` while the redirect and cookie
- * happen server-side.
- *
- * Layout matches the reference design's split, measured off it:
- *   - mobile: a yellow hero band (~1/4, hugs its content) over a white form
- *     area (~3/4), divided by a 3px bottom border.
- *   - desktop: a yellow column (~43%) beside a white column, divided by a 3px
- *     right border. Both full height.
+ * Static (prerendered) — do NOT call `cookies()` here to bounce an
+ * already-authenticated user; that belongs in proxy.ts, and doing it here would
+ * silently turn this page dynamic. `loginAction` is a Server Action passed to
+ * the client form as a prop, keeping @dmb/auth free of `next/*`.
  */
 export default function LoginPage() {
   return (

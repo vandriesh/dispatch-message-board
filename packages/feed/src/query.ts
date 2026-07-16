@@ -19,11 +19,8 @@ const MAX_LIMIT = 1000
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
-/**
- * One end of the date range (F6): either an absolute instant — what the date+time
- * picker sends — or a bare `YYYY-MM-DD`, which stays valid so older links and
- * hand-typed URLs keep working.
- */
+// Either an absolute instant (what the picker sends) or a bare `YYYY-MM-DD`,
+// which stays valid so older shared links keep working.
 const rangeBound = z
   .string()
   .refine(
@@ -32,12 +29,8 @@ const rangeBound = z
   )
   .optional()
 
-/**
- * Query params for `GET /api/messages`, validated at the route boundary. Arrays
- * come from repeated params (`?tag=PRODUCT&tag=DESIGN`); `limit` is coerced from
- * its string form. Field names match the URL (ADR-002) so nothing has to be
- * renamed between the query string and the filter contract.
- */
+// Field names match the URL, so nothing is renamed between the query string
+// and the filter contract.
 export const feedQuerySchema = z.object({
   user: z.array(z.string()).optional(),
   tag: z.array(z.enum(TAGS)).optional(),
@@ -49,18 +42,11 @@ export const feedQuerySchema = z.object({
 export type FeedQuery = z.infer<typeof feedQuerySchema>
 
 /**
- * Resolve a range bound to the canonical instant it means, so the comparison in
- * `matches` is a plain string compare against `createdAt` — both sides being
- * `toISOString()` output, lexicographic order *is* chronological order.
- *
- * Normalizing here rather than in `feedQuerySchema` is deliberate: the schema
- * only guards the API route, but `app/feed/page.tsx` renders the first page by
- * calling `getMessages` directly. A transform on the schema would leave the two
- * entry points disagreeing about what `?to=2026-07-14` means.
- *
- * A bare date expands to the edge of its UTC day — first instant for `from`, last
- * for `to` — which is what these bounds already meant when they were date-only,
- * and keeps "just pick a day" covering all of it.
+ * Resolve a bound to the canonical instant it means, so `matches` is a plain
+ * string compare (ISO strings sort chronologically). Done here rather than as a
+ * schema transform because `page.tsx` calls `getMessages` directly, bypassing
+ * the schema — the two entry points must agree. A bare date expands to the
+ * edges of its UTC day.
  */
 function boundInstant(
   value: string | undefined,
@@ -84,19 +70,15 @@ function matches(m: Message, f: FeedFilters): boolean {
 }
 
 // The cursor is opaque to the client: the last row's (createdAt, id), which is
-// stable when a new post is inserted at the top mid-scroll (ADR-004).
+// stable when a new post is inserted at the top mid-scroll.
 const encodeCursor = (m: Message) => btoa(`${m.createdAt}|${m.id}`)
 function decodeCursor(cursor: string): { createdAt: string; id: string } {
   const [createdAt, id] = atob(cursor).split("|")
   return { createdAt, id }
 }
 
-/**
- * The one read the feed is built on: filter, then walk the cursor. Pure over the
- * store, so it's trivially testable and framework-free. Offset pagination would
- * double-serve or skip rows once the composer inserts mid-list; the cursor keyed
- * on (createdAt, id) does not.
- */
+// Cursor, not offset, pagination: an offset would double-serve or skip rows
+// once the composer inserts at the top mid-list.
 export function getMessages(query: FeedQuery = {}): FeedPage {
   const { cursor, limit = DEFAULT_LIMIT, ...filters } = query
   // Resolve the range bounds once, not per row.
@@ -124,8 +106,7 @@ export function getMessages(query: FeedQuery = {}): FeedPage {
   return {
     items: page.map((m) => ({ ...m, author: authorOf(m.createdBy)! })),
     nextCursor: hasMore && last ? encodeCursor(last) : null,
-    // The full match count (every page of this filter reports the same value), so
-    // the client can render loaded/total pages without a separate count request.
+    // The full match count, so the client can render loaded/total pages.
     total: filtered.length,
   }
 }

@@ -16,17 +16,10 @@ import type { LoginAction } from "./login-contract"
 const GOOD_USER = "gooduser@dispatch.dev"
 
 /**
- * Login validates on both sides (client gate + Server Action), with one shared
- * `loginSchema`. These tests cover the two framework-agnostic halves — no Next
- * mock, no network:
- *
- *  1. `verifyCredentials` directly — a pure function, tested at its source.
- *  2. The form driven by a fake "server" action. The action does NOT validate:
- *     validation is the form's own client-side gate, so passing a non-validating
- *     action is exactly how we prove the gate stops a bad payload before it's
- *     ever called. The action stands in for the real Server Action's business
- *     logic (credential check); its cookie/redirect glue is Next-specific and
- *     belongs to an E2E test.
+ * The fake action deliberately does NOT validate — validation is the form's own
+ * client-side gate, so a non-validating action is how we prove the gate stops a
+ * bad payload before the action is ever called. The real Server Action's
+ * cookie/redirect glue is Next-specific and belongs to an E2E test.
  */
 function fakeServerAction(onUser: (user: SessionUser) => void): LoginAction {
   return async (_prev, formData) => {

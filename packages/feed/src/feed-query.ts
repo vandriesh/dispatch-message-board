@@ -1,16 +1,11 @@
 import { type FeedFilters } from "./message"
 import { type OwnedFeedPage } from "./rbac"
 
-/**
- * The client half of the feed's read contract — the query key, the URL builder,
- * and the page fetch — kept in one client-safe module so the list query
- * (`feed-client`) and the optimistic mutations (`feed-mutations`) target the
- * *same* cache entry. The key includes the active filters, so a filter change is a
- * different query and stale pages can't linger (ADR-006).
- */
+// One module for the key + fetch so the list query and the optimistic
+// mutations target the same cache entry. The key includes the filters, so a
+// filter change is a different query.
 export const messagesKey = (filters: FeedFilters) => ["messages", filters] as const
 
-/** Serialize filters (+ optional cursor and limit) to the repeated-param URL the route parses. */
 export function buildMessagesQuery(
   filters: FeedFilters,
   cursor?: string | null,
@@ -26,11 +21,8 @@ export function buildMessagesQuery(
   return params
 }
 
-/**
- * Fetch one page; throws on a non-2xx so React Query routes it to `isError`.
- * `limit` is normally left to the server default (20); `LOAD ALL` passes a large
- * one so the virtualization demo pulls every remaining row in a single request.
- */
+// `limit` is normally the server default; `LOAD ALL` passes a large one so the
+// virtualization demo pulls every remaining row in a single request.
 export async function fetchMessagesPage(
   filters: FeedFilters,
   cursor: string | null,

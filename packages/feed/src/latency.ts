@@ -1,15 +1,9 @@
 import "server-only"
 
 /**
- * Artificial server latency, so the states that only exist *while* a request is
- * in flight are actually observable: the streaming skeleton (F11), the `LOAD
- * MORE` loading label, and — the whole point of ADR-005 — the optimistic window
- * between an instant local update and the server's reconciliation.
- *
- * It's a mock affordance, not production behaviour: a real store is fast and this
- * helper goes away with it. Kept `server-only` and behind one named constant so
- * it's trivial to tune or delete, and it no-ops under test so the suite never
- * pays 1.2s per mutation.
+ * Artificial server latency, so the in-flight-only states are observable: the
+ * streaming skeleton, the loading labels, and the optimistic window. Goes away
+ * with a real store; no-ops under test so the suite never pays 1.2s per call.
  */
 export const MOCK_LATENCY_MS = 1200
 

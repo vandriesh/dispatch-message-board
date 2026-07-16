@@ -4,12 +4,8 @@ import { getMessages } from "./query"
 import { messagesStore } from "./store"
 
 /**
- * The date range (F6) — the third flow worth a test, because the bounds carry a
- * time and the comparison against `createdAt` is easy to get subtly wrong.
- *
- * The store is seeded newest-first with random instants across the last two days,
- * so every bound here is derived from the store rather than written down: the
- * seed moves with `Date.now()`, and a hard-coded date would rot by tomorrow.
+ * Every bound is derived from the store rather than written down: the seed
+ * moves with `Date.now()`, so a hard-coded date would rot by tomorrow.
  */
 const all = messagesStore.length
 const newest = messagesStore[0]

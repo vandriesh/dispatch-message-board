@@ -24,7 +24,6 @@ const TAG_SET = new Set<string>(TAGS)
 
 type SearchParams = Record<string, string | string[] | undefined>
 
-/** Read the URL's filter params into the FeedFilters contract (ADR-002). */
 function parseFilters(sp: SearchParams): FeedFilters {
   const many = (v: string | string[] | undefined) =>
     v === undefined ? undefined : Array.isArray(v) ? v : [v]
@@ -42,27 +41,10 @@ function parseFilters(sp: SearchParams): FeedFilters {
 }
 
 /**
- * The feed page (F4) — the container in the container/presentational split.
- *
- * It guards its own session first, then reads the filter params, fetches the first
- * filtered page on the server, and stamps each row with the per-viewer `owner`
- * flag (rbac) at this boundary — the one place with the session — so the store
- * stays viewer-agnostic and the client never re-derives ownership. Pages 2..n get
- * the same stamp in the `/api/messages` route. A mock latency runs first so the
- * streaming skeleton (app/feed/loading.tsx) is actually seen (F11, ADR-005). The
- * owner-stamped first page, the filters, and the logged-in user are handed to
- * `FeedSection` → `FeedClient`, which owns the query cache and the optimistic
- * post/edit/delete.
- *
- * The page is an app shell: `main` is exactly the viewport minus the top bar and
- * never itself scrolls. `FeedClient` lays out its column so the composer (and,
- * below `lg`, the mobile cog filter) stay pinned at the top, the messages scroll
- * in the space that's left, and LOAD MORE is parked at the bottom. Desktop keeps
- * the two-column layout — the FILTERS rail (296px) at left, the shell at right;
- * below `lg` it is a single column and the rail collapses into the cog panel.
- * `FeedClient` is remounted per filter set so a filter change resets the query
- * cache and optimistic state (ADR-004); `FeedSection` holds the mobile filter's
- * recency/open state above that remount so a pick doesn't reshuffle the chips.
+ * Server-renders the first filtered page and stamps each row's per-viewer
+ * `owner` flag here, at the one boundary with the session — the client never
+ * re-derives ownership. The mock latency runs first so the streaming skeleton
+ * (loading.tsx) is actually seen.
  */
 export default async function FeedPage({
   searchParams,
@@ -84,15 +66,12 @@ export default async function FeedPage({
 
   return (
     <main className="mx-auto flex h-[calc(100dvh-60px)] w-full max-w-[1120px] flex-col gap-8 overflow-hidden p-4 sm:h-[calc(100dvh-72px)] lg:flex-row lg:p-8">
-      {/* Desktop rail; hidden below lg, where the cog panel under the composer
-          takes over (F5–F7 on mobile). */}
+      {/* Desktop rail; below lg the cog panel under the composer takes over. */}
       <div className="hidden lg:block lg:w-[296px] lg:shrink-0">
         <FeedFilterBar />
       </div>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-        {/* FeedSection holds the mobile filter's recency/open state, then renders
-            FeedClient (remounted per filter set to reset query + optimistic state). */}
         <FeedSection
           initialPage={initialPage}
           filters={filters}

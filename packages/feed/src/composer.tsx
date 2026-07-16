@@ -18,12 +18,8 @@ import { TAGS, type MessageDraft, type Tag } from "./message"
 const MAX = 240
 
 /**
- * The composer (F2). Tag is a single-select (one tag per message — O2); the body
- * is capped at 240. Submit hands a draft to `onPost` and clears immediately: the
- * post is optimistic (ADR-005), so the row shows in the feed at once and the form
- * is ready for the next message before the server answers. It stays
- * framework-agnostic — the mutation and its rollback live one level up in
- * `FeedClient` — so it can be tested without a router.
+ * Submit clears the form immediately — the post is optimistic, so the row shows
+ * in the feed at once; the mutation and its rollback live one level up.
  */
 export function Composer({
   onPost,
@@ -39,11 +35,10 @@ export function Composer({
   const over = body.length > MAX
   const canPost = body.trim().length > 0 && !over
 
-  // A rejected post is handed back via `restore` (new identity per failure) so the
-  // text isn't lost. Only refill when the field is empty, so a message typed during
-  // the in-flight window is never clobbered. `body` is read through a ref kept
-  // current in an effect (not during render), so the refill effect can stay keyed
-  // on `restore` alone rather than re-running on every keystroke.
+  // A rejected post is handed back via `restore` so the text isn't lost. Only
+  // refill when the field is empty, so a message typed during the in-flight
+  // window is never clobbered; `body` is read through a ref so the refill
+  // effect keys on `restore` alone.
   const bodyRef = React.useRef(body)
   React.useEffect(() => {
     bodyRef.current = body

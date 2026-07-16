@@ -11,16 +11,10 @@ import {
   type MutationResult,
 } from "@dmb/feed/server"
 
-/**
- * A single message's write endpoint — edit (F8) and delete (F9), author-only. The
- * store enforces ownership and reports *why* it refused; this file maps that to a
- * status and speaks HTTP. `params` is a promise in Next 16 (route.md), so it's
- * awaited. Latency + the "fail"/"keep" magic words make the optimistic rollback
- * demoable (ADR-005).
- */
+// Edit and delete, author-only. The store enforces ownership and reports why
+// it refused; this file maps that to a status and speaks HTTP.
 type Ctx = { params: Promise<{ id: string }> }
 
-/** Map the store's refusal reason to an HTTP status. */
 function refusal(result: Extract<MutationResult, { ok: false }>): Response {
   const status =
     result.error === "forbidden" ? 403 : result.error === "not_found" ? 404 : 400
@@ -58,10 +52,8 @@ export async function DELETE(_request: Request, { params }: Ctx) {
   const { id } = await params
   await mockLatency()
 
-  // Simulated failure keys off the target's own body (ADR-005): delete a message
-  // whose body contains "keep" to exercise the rollback (re-insert) path — "keep"
-  // rather than "fail" because a "fail" body can never be saved in the first place.
-  // Decided before mutating, and only for the author, so a non-author still gets 403.
+  // Simulated failure: deleting a message whose body contains "keep" 500s to
+  // exercise the rollback path. Only for the author, so a non-author still 403s.
   const target = findMessage(id)
   if (target && target.createdBy === session.id && forceDeleteFailure(target.body)) {
     return Response.json({ error: "Simulated failure" }, { status: 500 })

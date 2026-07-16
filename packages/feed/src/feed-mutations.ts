@@ -15,14 +15,9 @@ import {
 import { type FeedRow, type OwnedFeedPage } from "./rbac"
 
 /**
- * The optimistic write layer (B3, ADR-005). Each hook applies its change to the
- * `["messages", filters]` cache *before* the request resolves, then reconciles:
- * `onSuccess` swaps the temp/pending row for the server's, `onError` restores the
- * pre-mutation snapshot (the rollback) and surfaces the failure. Keyed on the same
- * filters as the list query so the overlay and the list are the one cache entry.
- *
- * The store lag (mockLatency) is what makes the optimistic window visible; the
- * "fail"/"keep" magic words are what make the rollback demoable (see the routes).
+ * The optimistic write layer: each hook applies its change to the query cache
+ * *before* the request resolves; `onSuccess` swaps the temp/pending row for the
+ * server's, `onError` restores the pre-mutation snapshot (the rollback).
  */
 
 type Cache = InfiniteData<OwnedFeedPage> | undefined
@@ -46,11 +41,8 @@ const removeRow = (data: Cache, id: string): Cache =>
 const replaceRow = (data: Cache, id: string, next: FeedRow): Cache =>
   data ? mapItems(data, (items) => items.map((m) => (m.id === id ? next : m))) : data
 
-/**
- * Post failures have no row to attach to (the temp row rolls back) — they go to
- * the composer, along with the rejected draft so the text can be restored rather
- * than lost.
- */
+// Post failures have no row to attach to (the temp row rolls back) — they go
+// to the composer, with the rejected draft so the text isn't lost.
 type PostArgs = {
   filters: FeedFilters
   currentUser: FeedUser

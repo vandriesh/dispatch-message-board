@@ -7,20 +7,9 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@dmb/ui-kit/lib/utils"
 
 /**
- * A square, ink-bordered initial tile — not a circle.
- *
- * Two things about the stock shadcn Avatar are actively wrong here and were
- * removed rather than overridden at the call site:
- *
- *  1. It paints a `rounded-full` ring via an `::after` pseudo-element. Setting
- *     `rounded-none` on the root does NOT remove it — the ring is on the
- *     pseudo-element — so a circle shows *through* the square tile.
- *  2. The fallback is `bg-muted` + `text-muted-foreground`. The design uses a
- *     solid fill and black text.
- *
- * Measured: 38px default (16px type), 32px small (14px), 2.5px ink border, zero
- * radius, Space Grotesk bold — the initial is prose, not a control, so it is NOT
- * Space Mono.
+ * A square initial tile, not a circle. Stock shadcn paints a `rounded-full`
+ * ring via an `::after` pseudo-element that survives `rounded-none` on the
+ * root — it had to be removed in the kit, not overridden at the call site.
  */
 const avatarVariants = cva(
   [

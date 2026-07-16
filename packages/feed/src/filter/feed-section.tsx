@@ -8,27 +8,15 @@ import { type OwnedFeedPage } from "../rbac"
 import { FeedFilterMobile } from "./feed-filter-mobile"
 
 /**
- * Holds the mobile filter's persistent UI — the `mobileTags` list and the cog's
- * open state — one level *above* `FeedClient`.
+ * Holds the mobile filter's persistent UI one level *above* `FeedClient`, which
+ * is deliberately remounted per filter set (its `key`) to reset the query cache
+ * and optimistic state. The filter renders inside that keyed subtree, so any
+ * state it owned itself — the tag row, the cog's open state, the optimistic
+ * selection — would reset on every pick; held here, it survives.
  *
- * `FeedClient` is remounted per filter set (its `key`) so a filter change resets
- * the query cache and optimistic state. The mobile filter lives inside it (pinned
- * under the composer), so its own state would reset on every pick too — the tag
- * chips would reshuffle and the panel would snap shut. Keeping that state here,
- * where nothing is keyed, lets it survive across selections; the filter is handed
- * it as controlled props.
- *
- * `mobileTags` seeds from the URL's active tag, so a shared or bookmarked
- * `?tag=` link shows that chip in the bar on load (highlighted) rather than just
- * the cog. It's empty only when the URL carries no tag; from there each pick is
- * pushed to the front and the first three show (see FeedFilterMobile).
- *
- * The active tag is held here too, optimistically. `FeedFilterMobile` lives inside
- * the keyed `FeedClient`, so it can't hold its own optimistic selection across the
- * remount; and the server `filters` prop only reflects the pick after the mock
- * latency (~1.2s, ADR-005) commits — too late for the chip to light up on tap. So
- * the selection is mirrored here (surviving the remount) and reconciled with the
- * committed URL, mirroring the desktop rail's approach (feed-filter-bar.tsx).
+ * `mobileTags` seeds from the URL's active tag, so a shared `?tag=` link opens
+ * with its chip already in the bar. `selectedTag` is the optimistic mirror that
+ * lights the chip on tap, ~1.2s before the URL commit reaches `filters`.
  */
 export function FeedSection({
   initialPage,

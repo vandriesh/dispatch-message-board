@@ -3,21 +3,14 @@
 import { Button } from "@dmb/ui-kit"
 
 /**
- * The `LOAD MORE` / `LOAD ALL` controls (F10, ADR-004) — thin buttons over the
- * shared `useInfiniteQuery` in `FeedClient`. The pages they advance are the
- * query's `data.pages`; this only reflects `hasNextPage` and drives the fetches.
- *
  * `LOAD MORE` walks the cursor one page at a time — the focusable, announceable
- * baseline the ADR describes, and the recovery path when auto-fetch-on-scroll (in
- * `Feed`) has nothing to trigger it. `LOAD ALL` pulls every remaining row in one
- * request: it's the fast way to fill the list to 1000+ so the virtualization (B2)
- * is actually demonstrable without 50 clicks. Loading labels are real because the
- * store lags (mockLatency).
+ * baseline under the auto-fetch-on-scroll. `LOAD ALL` pulls every remaining row
+ * in one request: the fast way to fill the list to 1000+ so the virtualization
+ * is demonstrable without 50 clicks.
  *
- * When there's nothing left to fetch the buttons **stay rendered but disabled** —
- * a bottom control that simply vanishes reads as "did it break?", whereas a
- * disabled end-state tells the user they've reached the end. `FeedClient` keeps
- * this mounted whenever the feed has rows.
+ * When there's nothing left the buttons stay rendered but disabled — a control
+ * that vanishes reads as "did it break?"; a disabled end-state says "you've
+ * reached the end".
  */
 export function LoadMore({
   hasNextPage,

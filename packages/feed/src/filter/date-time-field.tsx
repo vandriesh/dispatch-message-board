@@ -17,33 +17,16 @@ import {
   inputVariants,
 } from "@dmb/ui-kit"
 
-/**
- * The calendar, split into its own chunk and fetched on first open.
- *
- * `react-day-picker` + the slice of `date-fns` it drags in are the heaviest thing
- * the app ships — bigger than TanStack Query — and every visitor to /feed paid for
- * them, on both breakpoints, whether or not they ever filtered by date. The
- * popover already deferred *mounting* it; what it could not defer was the
- * *download*, because a static `import` is resolved at build regardless of whether
- * the component ever renders. `lazy` is what turns that into a real split.
- *
- * Imported from the module rather than the `@dmb/ui-kit` barrel on purpose: going
- * through the barrel would pull the whole kit into this chunk and undo the split.
- *
- * `React.lazy`, not `next/dynamic`: this package stays framework-agnostic (only
- * `use-filter-query` and `feed-filter-bar` are allowed to know about `next/*`),
- * and there is nothing here `next/dynamic` would add — the calendar is
- * client-only by nature, mounting on a user gesture.
- */
+// The calendar is the heaviest dep the app ships, so it's code-split and only
+// downloaded on first popover open. Imported from the module (the barrel would
+// pull the whole kit into the chunk); React.lazy, not next/dynamic, so the
+// package stays framework-agnostic.
 const Calendar = React.lazy(() =>
   import("@dmb/ui-kit/components/calendar").then((m) => ({ default: m.Calendar }))
 )
 
-/**
- * What an untouched time means at each end of the range. Picking only a day still
- * covers all of it — the behaviour these bounds had when they were plain date
- * inputs — and the millisecond keeps `to` inclusive of the second it names.
- */
+// An untouched time means the whole day: 00:00:00.000 → 23:59:59.999 keeps both
+// bounds inclusive.
 const EDGE = {
   start: { time: "00:00:00", ms: 0 },
   end: { time: "23:59:59", ms: 999 },
@@ -52,16 +35,8 @@ const EDGE = {
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * Read a bound off the URL as the local wall-clock the controls display.
- *
- * A bare `YYYY-MM-DD` (an older link, or a hand-typed one) means the whole day,
- * so it resolves to this end's edge of the *local* day — `new Date("2026-07-15")`
- * would read it as UTC midnight and render as 03:00 east of Greenwich, which
- * looks like a narrow filter rather than the whole day it asks for.
- *
- * Anything unparseable reads as unset: the URL is user-editable and the server
- * ignores a bound it can't parse, so the rail must agree rather than hand an
- * Invalid Date to `format`, which throws.
+ * A bare `YYYY-MM-DD` (an older or hand-typed link) means the whole *local* day;
+ * anything unparseable reads as unset, matching the server, which ignores it.
  */
 export function parseBound(
   value: string | undefined,
@@ -81,27 +56,10 @@ export function parseBound(
 }
 
 /**
- * One end of the date range (F6) — a date popover beside a time input, the pair
- * committing a single absolute instant.
- *
- * Both controls read and write **local** wall-clock while the committed value is
- * UTC (`toISOString()`): picking 10:30 means the caller's 10:30. That conversion
- * has to happen here, on the client, because it's the only place the viewer's
- * offset is known — the server would resolve a floating "10:30" against its own
- * zone (UTC on Vercel) and quietly answer a different question.
- *
- * Each control commits once it has a whole intent to report. For the date that's
- * the pick. For the time it's the **blur**: `type="time"` fires per segment, so
- * committing on change would spend three URL writes on one "13:30:45" — each a
- * server render, a ~1.2s latency, and a `FeedClient` remount — and the input
- * would snap back between them. So it holds a draft until focus leaves.
- *
- * With no date the time input is disabled: a time alone filters nothing, so there
- * would be nothing to commit.
- *
- * The calendar is the one thing here that costs real bytes (`react-day-picker` +
- * `date-fns`, the heaviest dep in the app), so it is code-split and fetched on
- * first open — see the `lazy` call above.
+ * One end of the date range. The controls show local wall-clock but commit a UTC
+ * instant — only the client knows the viewer's offset. The time commits on blur,
+ * not change: `type="time"` fires per segment, so committing on change would
+ * spend three navigations on one "13:30:45".
  */
 export function DateTimeField({
   label,
@@ -122,22 +80,16 @@ export function DateTimeField({
 }) {
   const [open, setOpen] = React.useState(false)
 
-  // Four of these are mounted at once (From/To × the desktop rail and the mobile
-  // panel), so the label targets need to be unique per instance.
   const id = React.useId()
   const dateId = `${id}-date`
   const timeId = `${id}-time`
 
   const selected = parseBound(value, edge)
 
-  // What's typed but not yet committed. The input can't read straight off the
-  // URL: a commit only lands after the latency, so mid-edit the controlled value
-  // would still be the old one and snap back under the caret.
+  // A commit only lands on the URL after the ~1.2s latency, so mid-edit the
+  // input holds a draft rather than snapping back under the caret.
   const [draft, setDraft] = React.useState<string | null>(null)
 
-  // Drop the draft once the URL catches up (or moves for reasons of its own — a
-  // shared link, Back). Adjusting during render rather than from an effect: no
-  // second pass, and no cascade to re-sync.
   const [committed, setCommitted] = React.useState(value)
   if (value !== committed) {
     setCommitted(value)
@@ -147,7 +99,6 @@ export function DateTimeField({
   const committedTime = selected ? format(selected, "HH:mm:ss") : EDGE[edge].time
   const time = draft ?? committedTime
 
-  /** Fold the local day and local time into the instant that goes on the URL. */
   function commit(day: Date | undefined, at: string) {
     if (!day) return onChange(undefined)
     const [h, m, s] = at.split(":").map(Number)
@@ -156,8 +107,7 @@ export function DateTimeField({
     onChange(local.toISOString())
   }
 
-  // An array, not one object: `{ before, after }` in a single matcher reads as
-  // the interval *between* the two, which is the inverse of what's wanted.
+  // An array, not one `{ before, after }` matcher — that means *between*.
   const disabledDays = [
     ...(min ? [{ before: min }] : []),
     ...(max ? [{ after: max }] : []),
@@ -181,9 +131,8 @@ export function DateTimeField({
             <ChevronDownIcon className="size-4 shrink-0" />
           </PopoverTrigger>
           <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-            {/* The fallback holds the calendar's own footprint, so the popover
-                opens at its final size instead of snapping when the chunk lands.
-                Only the first open ever waits; after that it's cached. */}
+            {/* Fallback at the calendar's footprint, so the popover doesn't snap
+                when the lazy chunk lands. */}
             <Suspense
               fallback={
                 <div
@@ -220,8 +169,6 @@ export function DateTimeField({
           disabled={!selected}
           onChange={(event) => setDraft(event.target.value)}
           onBlur={() => {
-            // Nothing typed, or typed back to what's already committed — either
-            // way there's no filter change to spend a navigation on.
             if (draft === null || draft === committedTime) return setDraft(null)
             commit(selected, draft)
           }}
