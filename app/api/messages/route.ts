@@ -19,7 +19,8 @@ import {
  *   GET  — read one filtered page (session-gated, owner-stamped per viewer)
  *     ?user=u_adam&user=u_eva   repeatable — owner filter (F7)
  *     ?tag=PRODUCT&tag=DESIGN   repeatable — tag filter (F5)
- *     ?from=2026-07-01&to=…     inclusive date range (F6)
+ *     ?from=2026-07-01T07:30:00.000Z&to=…  inclusive range (F6); a bare
+ *                               YYYY-MM-DD still means the whole UTC day
  *     ?cursor=…&limit=20        cursor pagination (F10, ADR-004)
  *   POST — create a message (F2/F3), optimistically inserted client-side first
  */

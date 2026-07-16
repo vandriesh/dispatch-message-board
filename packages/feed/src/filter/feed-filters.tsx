@@ -3,7 +3,6 @@
 import { type ReactNode } from "react"
 import {
   Badge,
-  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -14,6 +13,7 @@ import {
 } from "@dmb/ui-kit"
 
 import { TAGS, USERS, type FeedFilters, type Tag } from "../message"
+import { DateTimeField, parseBound } from "./date-time-field"
 
 // Sentinel for the user dropdown's "show everyone" option — selecting it clears
 // the owner filter rather than filtering to a user named "all".
@@ -127,24 +127,20 @@ export function UserDateFilter({
 
       <div>
         <FilterLabel>Date</FilterLabel>
-        <div className="flex flex-col gap-2">
-          <Input
-            type="date"
-            aria-label="From"
-            value={value.from ?? ""}
-            max={value.to}
-            onChange={(event) =>
-              onFilterChange({ from: event.target.value || undefined })
-            }
+        <div className="flex flex-col gap-3">
+          <DateTimeField
+            label="From"
+            edge="start"
+            value={value.from}
+            max={parseBound(value.to, "end")}
+            onChange={(from) => onFilterChange({ from })}
           />
-          <Input
-            type="date"
-            aria-label="To"
-            value={value.to ?? ""}
-            min={value.from}
-            onChange={(event) =>
-              onFilterChange({ to: event.target.value || undefined })
-            }
+          <DateTimeField
+            label="To"
+            edge="end"
+            value={value.to}
+            min={parseBound(value.from, "start")}
+            onChange={(to) => onFilterChange({ to })}
           />
         </div>
       </div>

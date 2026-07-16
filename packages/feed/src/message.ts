@@ -96,12 +96,16 @@ export type FeedPage = {
 /**
  * The filter contract, mirrored 1:1 from the URL (ADR-002). Owner and tag are
  * multi-select; date is a range (a single instant isn't a useful filter — O3).
- * `from`/`to` are date-only `YYYY-MM-DD`, kept human-readable so a filtered URL
- * reads cleanly when shared.
+ *
+ * `from`/`to` are absolute instants (`toISOString()`), because the range now
+ * carries a time (F6): the picker reads local wall-clock but `createdAt` is UTC,
+ * so the conversion has to happen before the bound reaches the URL — otherwise
+ * "since 10:30" would mean 10:30 UTC to everyone outside it. A bare `YYYY-MM-DD`
+ * is still accepted and means the whole UTC day, so older links keep working.
  */
 export type FeedFilters = {
   user?: string[] // FeedUser["id"][]
   tag?: Tag[]
-  from?: string // YYYY-MM-DD, inclusive
-  to?: string // YYYY-MM-DD, inclusive
+  from?: string // ISO instant (or YYYY-MM-DD), inclusive
+  to?: string // ISO instant (or YYYY-MM-DD), inclusive
 }
