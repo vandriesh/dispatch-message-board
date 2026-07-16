@@ -130,8 +130,10 @@ describe("optimistic post", () => {
     await post("shipped it")
 
     expect(await screen.findByText("shipped it")).toBeInTheDocument()
-    // Still present after the request settles — no rollback, no error.
-    await new Promise((r) => setTimeout(r, 60))
+    // The optimistic row is marked pending ("sending…") until the server answers…
+    expect(screen.getByText(/sending/i)).toBeInTheDocument()
+    // …then the request settles: pending clears, the row stays, no error.
+    await waitForElementToBeRemoved(() => screen.queryByText(/sending/i))
     expect(screen.getByText("shipped it")).toBeInTheDocument()
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
