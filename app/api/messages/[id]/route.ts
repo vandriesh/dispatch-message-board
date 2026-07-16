@@ -37,13 +37,12 @@ export async function PATCH(request: Request, { params }: Ctx) {
     return Response.json({ error: "Invalid message" }, { status: 400 })
   }
 
+  await mockLatency()
   if (forceFailure(body)) {
-    await mockLatency()
     return Response.json({ error: "Simulated failure" }, { status: 500 })
   }
 
   const { id } = await params
-  await mockLatency()
   const result = editMessage(id, session.id, body)
   if (!result.ok) return refusal(result)
 

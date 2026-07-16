@@ -69,13 +69,15 @@ export async function POST(request: Request) {
     )
   }
 
+  // One latency per request, once the guards have passed — every path from here
+  // stands in for a store round-trip, including the simulated failure.
+  await mockLatency()
+
   // Simulated failure (ADR-005): lets the client demonstrate optimistic rollback.
   if (forceFailure(parsed.data.body)) {
-    await mockLatency()
     return Response.json({ error: "Simulated failure" }, { status: 500 })
   }
 
-  await mockLatency()
   const message = addMessage(parsed.data, session.id)
   const author = authorOf(message.createdBy) ?? userFromIdentity(session)
   const created: FeedMessage = { ...message, author }
