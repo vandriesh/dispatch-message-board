@@ -127,12 +127,23 @@ export function FeedClient({
 
   // Loaded / total *page* count for the footer readout (like the composer's char
   // counter). `total` is the filter's full match count, the same on every page, so
-  // total pages is ceil(total / page size); loaded pages is however many the
-  // infinite query has walked. Falls back to the server-rendered first page before
-  // the query cache is populated.
+  // total pages is ceil(total / page size). Falls back to the server-rendered
+  // first page before the query cache is populated.
+  //
+  // Both sides are counted in pages *of `FEED_PAGE_SIZE` rows* — which is why
+  // loaded pages is derived from the rows, not from `data.pages.length`. Those
+  // agree only while every fetch uses the default size, and LOAD ALL deliberately
+  // doesn't: it pulls every remaining row in one large page, leaving the query
+  // with 2 pages holding all 51 pages' worth. The readout read "2/51" with
+  // nothing left to load.
   const total = query.data?.pages.at(-1)?.total ?? initialPage.total
-  const loadedPages = query.data?.pages.length ?? 1
   const totalPages = Math.ceil(total / FEED_PAGE_SIZE)
+  // Clamped: an optimistic insert can push the row count past the server's
+  // `total` for the length of the in-flight window (ADR-005).
+  const loadedPages = Math.min(
+    Math.ceil(rows.length / FEED_PAGE_SIZE),
+    totalPages
+  )
 
   // App shell: the composer and the mobile filter stay pinned at the top, the
   // messages scroll in the space that's left, and LOAD MORE is parked at the
