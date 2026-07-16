@@ -1,11 +1,5 @@
 # Dispatch — Message Board
 
-Next.js 16 message board for the SDE Frontend Challenge: seeded users log in, post tagged
-messages (≤240 chars), and filter a 1000-row feed by tag, user, and date & time — filters live
-in the URL, so any view is shareable.
-
-Full reasoning: [_ARCHITECTURE.md](_ARCHITECTURE.md) · tracked brief: [_REQUIREMENTS.md](_REQUIREMENTS.md).
-
 ## Install & Run
 
 Node **20.9+**. No env vars, no `.env` — the backend is mocked in-process.
@@ -15,11 +9,14 @@ npm install
 npm run dev     # http://localhost:3000
 ```
 
+Also: `npm test` · `npm run build` · `npm run lint`. Design system at `/ui-kit`.
+
+
+## Login
+
 **Log in with a seeded account — the password *is* the email:** `adam@dispatch.dev`,
 `eva@dispatch.dev`, or `snake@dispatch.dev` (e.g. `eva@dispatch.dev` / `eva@dispatch.dev`).
 A mismatch fails on purpose, so the error state has something real to do.
-
-Also: `npm test` · `npm run build` · `npm run lint`. Design system at `/ui-kit`.
 
 ## Structure
 
@@ -54,16 +51,16 @@ That split is why ~5MB of faker can never be bundled.
 
 ## Checklist
 
-| ✓ | |
-|---|---|
-| ✅ | Login — seeded users, no sign-up |
-| ✅ | Post ≤240 chars with a tag |
-| ✅ | Feed filtered by tag / user / date **& time** |
-| ✅ | Author-only inline edit + delete |
+| ✓ |                                                  |
+|---|--------------------------------------------------|
+| ✅ | Login — seeded users, no sign-up                 |
+| ✅ | Post ≤240 chars with a tag                       |
+| ✅ | Feed filtered by tag / user / date & time        |
+| ✅ | Author-only inline edit + delete (RBAC)          |
 | ✅ | Pagination (`LOAD MORE`) **and** infinite scroll |
-| ✅ | Loading + empty states |
-| ✅ | Responsive (mobile + desktop) |
-| ✅ | Filters in the URL — shareable/bookmarkable |
+| ✅ | Loading + empty states                           |
+| ✅ | Responsive (mobile + desktop)                    |
+| ✅ | Filters in the URL — shareable/bookmarkable      |
 
 ## Beyond the brief
 
@@ -73,16 +70,10 @@ That split is why ~5MB of faker can never be bundled.
   URL, so a shared `?tag=` link opens with its chip already set. One tag at a time (radio).
 - **Optimistic filtering** — the tapped chip lights up *immediately* with a pending spinner
   instead of after the ~1.2s reconcile. An `n/N pages` readout sits under the list.
-- **The date range means one moment, not one reading** — the design's `DATE` is two date
-  fields, but the brief asks for date **& time**, so each end pairs a calendar popover with a
-  time input. The controls read your local clock and commit a UTC instant, so `?from=…Z` picks
-  out the same moment wherever the link is opened — a floating `10:30` would quietly mean
-  something different in every timezone. Picking only a day still covers the whole day, and a
-  bare `yyyy-mm-dd` still works, so older links don't rot. Detail: ADR-014.
 - **Two-step delete** — `DELETE` swaps to confirm/cancel in place; no modal.
 - **A failed post keeps your text** — the rejected draft is handed back to the composer, and
   each error renders under whatever caused it (the composer, or that row).
-- **Mobile top bar** folds handle + `LOG OUT` behind the avatar. 
+- **Mobile top bar** folds handle + `LOG OUT` behind the avatar (toggle popup). 
 - `/ui-kit` browses every primitive, so design drift stays visible.
 
 ## Suggestions
@@ -92,18 +83,12 @@ That split is why ~5MB of faker can never be bundled.
   `Apply`. Worth most now the range carries a time (four inputs = four wasted round-trips).
 - Mobile Filtering improvements - use tags like `[user: @adam x]` `[tag: RANDOM x]` -
   deletable tags - easier to reset the tag filter.
-- **E2E with Playwright** — for the critical paths: login → post → filter → edit/delete. RTL
-  can't reach the Server Action + cookie + redirect glue; a real browser can.
 - **Collapse the composer on mobile** — it owns a lot of a phone screen for an occasional
   action. Fold it behind an edit icon in the top bar that toggles it open/shut.
+- **E2E with Playwright** — for the critical paths: login → post → filter → edit/delete. RTL
+  can't reach the Server Action + cookie + redirect glue; a real browser can.
 - **CI/CD** — Actions on PR: typecheck, lint, test, build, + a **bundle-size budget** that
-  fails on regression. Small bundles are a process, not a cleanup.
-- **Deployment** — Vercel. The in-memory store isn't deploy-safe across serverless
-  invocations; swap it behind the same route handlers — the contract doesn't move.
-- **`next/dynamic` for `react-day-picker`** — the heaviest dep, and the date+time range mounts
-  it only when the popover opens. Lazy-loading it moves the cost onto the people who actually
-  filter, and a popover is already a beat where a delay reads as normal — so there's no flash
-  to pay for, and no layout to shift.
+  fails on regression.
 
 ## Bonus Points
 
@@ -116,74 +101,67 @@ That split is why ~5MB of faker can never be bundled.
     back. (`keep`, not `fail` — a `fail` body can never be saved, so it could never exist to
     be deleted.)
 
-  A ~1.2s mock latency makes the window visible.
+  A ~1.2s mock latency is added for demoing optimistic UI.
 - **Real route handlers** — cursor pagination, zod at the boundary, author enforced server-side.
 - **Tests** — 17, across three flows: the login form, the optimistic rollback, and the date
   range (bounds are inclusive, filter at instant precision, and a bare `yyyy-mm-dd` still means
   the whole UTC day — the one that guards the older shared links).
 
-### Test approach — and why there's no MSW
-
-`msw` is in `package.json` but **nothing imports it**. Not an oversight to hide — it's the
-conclusion:
-
-- **Login has no network to mock.** It's a Server Action: the client posts to an encoded action
-  id, so there's no `fetch` to intercept. The form takes its submit **action as a prop** — the
-  route injects the real Server Action, the test injects a `vi.fn()`. Same component, no App
-  Router in jsdom. *The seam replaces the mock.*
-- **The feed does cross `fetch`**, but the rollback test needs one deterministic *delayed* 500 —
-  and the delay is the point, since it's what makes the optimistic window assertable.
-  `vi.stubGlobal` does that in three lines.
-
-MSW earns its keep when many endpoints share handlers across suites. At two flows it's
-ceremony, so the dep should go. Detail: ADR-011.
 
 ## Bonus Questions
 
 **Q: What rendering strategy (SSR, SSG, ISR, CSR) would you use for each page and why?**
 
-> - the axis is data dependency, not auth state — "logged out" ≠ "static"
-> - `/feed` — dynamic SSR, streamed; reads the session cookie + `searchParams`, so it can't be prerendered (`app/feed/page.tsx:72`)
-> - first page hydrated into the Query cache — not fetched twice; pages 2..n client-fetched (`feed-client.tsx`)
-> - `/api/*` — dynamic by necessity (session + request params)
-> - `/login`, `/ui-kit` — no data of their own; **should** be SSG, but today they're dynamic
-> - why — `app/layout.tsx:107` reads `cookies()` (via `getSession`) to show the TopBar; the root layout wraps every route, so all of them go dynamic
-> - fix — move the session read into a nested layout wrapping only `/feed`; then those two prerender at build
-> - not ISR — a per-user, mutating feed has no meaningful revalidate window; a stale feed is a bug, not a cache hit
-> - not CSR — we want the first page server-rendered, not a spinner
-> - could add PPR — prerender the shell (top bar, filter rail), stream the feed
-> - caveat — route handlers prerender too: a `GET` ignoring cookies/params gets baked at build and serves stale JSON while looking healthy
+> few pages are static (SSG), the rest SSR
+>
+> **What `npm run build` actually reports** — the strategy is a build fact, not an intention:
+>
+> ```
+> Route (app)
+> ┌ ƒ /                      ← reads the session cookie to redirect
+> ├ ○ /_not-found
+> ├ ƒ /api/messages          ← session + filter params
+> ├ ƒ /api/messages/[id]     ← session + request body
+> ├ ƒ /feed                  ← session cookie + searchParams
+> ├ ○ /login
+> └ ○ /ui-kit
+>
+> ○  (Static)   prerendered as static content
+> ƒ  (Dynamic)  server-rendered on demand
+> ```
+>
+> - one test per page — does the HTML depend on the request (cookies, `searchParams`, headers)? yes → dynamic SSR, no → SSG
+> - `/feed` is dynamic because of the **filters**, not the login — the client holds 20 of 1000 rows, so filtering must ask the server; the URL carries the filter so the view stays shareable and there's no client mirror to drift
 
 **Q: How would you keep the bundle small and avoid unnecessary re-renders as the feature set grows?**
 
-> **Bundle**
-> - Server Components by default — pages stay server-side (`app/feed/page.tsx`, `app/ui-kit/page.tsx`, `app/(auth)/login/page.tsx`)
-> - `"use client"` only at the leaves — `providers.tsx`, `composer.tsx`, `owner-message-card.tsx`, `load-more.tsx`
-> - virtualize long lists — `packages/feed/src/feed.tsx:4,68`; renders the visible window, not 1000 rows
-> - know each lib's cost — Query ~13kb (earns it: cache + rollback); react-virtual tiny, and it *cuts* DOM work
-> - *next:* `next/dynamic` for `react-day-picker` — heaviest dep (`ui-kit/src/components/calendar.tsx`), only mounted when the date popover opens (`filter/date-time-field.tsx:162`); the popover already defers *rendering*, `next/dynamic` defers the *download*
+> **Bundle** — every number below is measured off `npm run build`, not cited.
+>
+> - Server Components by default; `"use client"` where interaction lives — the feed list included, since the optimistic overlay needs a client-owned cache
+> - virtualize long lists — ~10–13 DOM rows for 1000 (`feed.tsx:4,68`)
+> - know each lib's cost — react-day-picker **16.3kb gzip** (measured, the heaviest) · Query ~13kb (cited) · react-virtual tiny, and it *cuts* DOM work
+> - **code splitting, demoed on the calendar** — `React.lazy`'d and fetched on first popover open (`filter/date-time-field.tsx`); verified: **0 of the 15** chunks on `/feed`'s initial load contain it
+> - a popover defers *rendering*, not *downloading* — a static `import` ships the bytes regardless; only a dynamic `import()` moves them. Import the module, not the `@dmb/ui-kit` barrel, or the whole kit lands in the chunk. `React.lazy`, not `next/dynamic`, so `@dmb/feed` stays framework-agnostic
+> - the calendar is deliberately the demo — a native `<input type="date">` satisfied F6 first (`ebad5e6`), and date **& time** could be a `datetime-local`; a real, heavy, genuinely-deferrable dep shows the trade better than a contrived one
+> - not done — `date-fns` is **14.6kb still eager** (2 chunks × 7.3kb): one `import { format }` pins it (`date-time-field.tsx:5`), so it can't follow the calendar into the lazy chunk. `Intl.DateTimeFormat` would free it
+> - split by *structure*, not by viewport — lazy-loading the mobile filter would defer **131 lines** and *not* the calendar (it reuses `feed-filters.tsx`), while costing SSR of the URL-seeded tag chip. Behind a popover there's nothing to lose
 > - *next:* size budget in CI — fail the build on growth instead of guessing
 >
 > **Re-renders**
-> - the fix is the boundary, not the memo
-> - filters in the URL — a filter change re-renders on the **server**, no client cascade (`filter/use-filter-query.ts:76`)
-> - state at the leaf — the edit row owns its draft, so typing can't re-render the other 999 (`owner-message-card.tsx:36,37,113`)
+> - using virtualizing - "work" with a small number of items loaded; 
+> - `FeedClient` **is** remounted per filter set (keyed, `filter/feed-section.tsx:55`) — a deliberate reset of the query cache + optimistic state, not a stray cascade
+> - keep the state as low as possible (in our case at the leaf) — the edit row owns its draft, so typing can't re-render the other 999 (`owner-message-card.tsx:36,37,113`)
 > - stable keys by id — virtual rows get reused, not rebuilt (`feed.tsx:75,99`)
-> - *next:* React Compiler — not enabled yet, so manual `useCallback` still earns its keep here; reach for memo where the Profiler shows a cost
 
 **Q: What would you check first if users reported the feed felt janky while scrolling? What would be your debugging steps to isolate the performance bottleneck?**
 
 > **Check first**
-> - reproduce at the volume that triggers it — 1000+ rows; jank only at scale is O(n) work per frame
-> - don't guess — record a scroll in the Performance panel; "janky" has several causes that look identical to a user
+>
+> Supposedly janky scrolling is a classic symptom when we have a lot of rows. Virtualizer to the rescue.
+>
+> - reproduce at the volume that triggers it — 1000+ rows;
 >
 > **Isolate the bottleneck**
-> - the flame chart splits it three ways:
-> - long JS tasks → re-rendering per scroll event; classic cause is an `onScroll` that sets state
-> - heavy layout/paint, little JS → too many DOM nodes → virtualize (`feed.tsx:68`)
-> - forced reflow (purple sawtooth) → reading `offsetHeight` between writes
-> - then the React Profiler — *which* rows re-render, and why (context value / new object identity in a provider)
-> - check layout shift from avatars/images without fixed dimensions — reads as jank even at 60fps
-> - paging trigger must come from the virtualizer — *not* an `IntersectionObserver` sentinel (never rendered, so it can never intersect)
+> - record, analyze with React Profiler — *which* rows re-render, and why (context value / new object identity in a provider)
 > - fix one thing, re-measure against the same trace
 > - prior for an unvirtualized 1000-row feed: node count first, unmemoized row second
