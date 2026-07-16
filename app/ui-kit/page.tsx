@@ -1,3 +1,4 @@
+import { FeedEmpty, MessageSkeleton } from "@dmb/feed"
 import {
   Avatar,
   AvatarFallback,
@@ -5,18 +6,12 @@ import {
   Button,
   Card,
   CardContent,
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
   Field,
   FieldGroup,
   FieldLabel,
   Input,
   Label,
   Separator,
-  Skeleton,
   Spinner,
   Textarea,
 } from "@dmb/ui-kit"
@@ -228,41 +223,32 @@ export default function UiKitPage() {
 
       <Section title="States — loading & empty">
         <div className="grid gap-6 md:grid-cols-2">
-          <Card elevation="flat">
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-10 rounded-none" />
-                <div className="flex flex-1 flex-col gap-2">
-                  <Skeleton className="h-3 w-32 rounded-none" />
-                  <Skeleton className="h-3 w-20 rounded-none" />
-                </div>
-              </div>
-              <Skeleton className="h-3 w-full rounded-none" />
-              <Skeleton className="h-3 w-4/5 rounded-none" />
-              <div className="flex items-center gap-2 pt-2">
-                <Spinner />
-                <span className="font-mono text-[12px] text-muted-foreground">Loading…</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card elevation="flat">
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia
-                  variant="icon"
-                  className="rounded-none border-[3px] border-ink bg-primary text-2xl font-bold"
-                >
-                  !
-                </EmptyMedia>
-                <EmptyTitle className="font-sans font-bold">Nothing here yet</EmptyTitle>
-                <EmptyDescription>
-                  No messages match this view. Post the first one, or clear your filters.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          </Card>
+          <div className="flex flex-col gap-3">
+            <span className="font-mono text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
+              MessageSkeleton — streamed by /feed while the server renders
+            </span>
+            <MessageSkeleton />
+          </div>
+          <div className="flex flex-col gap-3">
+            <span className="font-mono text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
+              FeedEmpty — when a filter matches nothing
+            </span>
+            {/* FeedEmpty is min-h-full (it fills the feed's scroll region); this
+                wrapper is the "region" here, so it fills the cell minus the label
+                instead of overflowing past it. */}
+            <div className="flex min-h-0 flex-1 flex-col">
+              <FeedEmpty />
+            </div>
+          </div>
         </div>
+        <Row label="Spinner — inside the pending tag chip while a filter is in flight">
+          <Spinner />
+        </Row>
+        <p className="max-w-prose font-mono text-[12px] text-muted-foreground">
+          MessageSkeleton and FeedEmpty are the app&apos;s actual components, imported from{" "}
+          <code className="font-mono">@dmb/feed</code>
+          {" — not gallery replicas — so this page can't drift from what /feed renders."}
+        </p>
       </Section>
 
       <Section title="Separator">

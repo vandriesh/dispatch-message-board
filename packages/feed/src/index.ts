@@ -38,3 +38,9 @@ export {
 // URL-aware filter glue and the presentational filter controls, live in ./filter.
 export { FeedFilterBar } from "./filter/feed-filter-bar"
 export { FeedSection } from "./filter/feed-section"
+
+// The feed's two "nothing here" states (F11), exported for the second consumer:
+// /ui-kit renders the real components rather than replicas, so the gallery
+// can't drift from what the app shows.
+export { FeedEmpty } from "./feed-empty"
+export { MessageSkeleton } from "./message-skeleton"
