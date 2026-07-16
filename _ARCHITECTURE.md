@@ -345,8 +345,9 @@ Anything written against Radix's API needs translating.
   first, and it cost nothing.
 - ⚠️ The date-range Calendar (O3) does pull in `react-day-picker` **and `date-fns`** — still by
   far the heaviest thing in the set, and still the prime `next/dynamic` candidate (Q2). The
-  primitive is installed; whether the *feed* uses it or falls back to two plain `From`/`To`
-  inputs is a decision deferred to when that screen is real.
+  deferred question — whether the *feed* uses the primitive or falls back to two plain
+  `From`/`To` inputs — is now answered: it uses it, once the range grew a time (ADR-014). It
+  starts out behind a popover, which is what makes that split worth taking.
 
 ### ADR-010 — The ui-kit is a workspace package, not a folder — Accepted
 Primitives live in `packages/ui-kit` (an npm workspace, `@dmb/ui-kit`) rather than in a
@@ -486,8 +487,9 @@ for the life of the process. Three decisions worth stating:
   not by a comment. This is the same instinct as ADR-010's ui-kit-as-package.
 
 **The contract.** `GET /api/messages` returns `{ items, nextCursor }`. Filters mirror the URL
-1:1 (ADR-002): repeatable `user`/`tag`, an inclusive `from`/`to` **date range** kept as clean
-`YYYY-MM-DD` so a shared link reads well. The **cursor** is an opaque, base64 `(createdAt, id)`
+1:1 (ADR-002): repeatable `user`/`tag`, an inclusive `from`/`to` **range of instants** — bare
+`YYYY-MM-DD` originally, until the range grew a time and a bound had to name a moment
+(ADR-014). The **cursor** is an opaque, base64 `(createdAt, id)`
 pair — not an offset — so a post inserted at the top mid-scroll (F2) never makes page 2
 double-serve or skip a row (ADR-004). The route handler is thin: parse + `zod`-validate → call
 `getMessages` → JSON, `400` on bad params. `author` is denormalized onto each message so the
@@ -512,6 +514,73 @@ to be discovered.
 guard land here; the optimistic `POST` + rollback is ADR-005). Infinite scroll and virtualization
 over pages 2..n (ADR-004/ADR-006, TanStack Query + Virtual) wrap `<Feed>` without changing its
 shape — that's why the presentational split is worth it.
+
+---
+
+### ADR-014 — The date range carries a time, and the URL carries the instant — Accepted
+The `DATE` filter is a range of **absolute instants**, each end a date popover beside a native
+time input. The URL carries `?from=2026-07-14T21:00:00.000Z`, not the `YYYY-MM-DD` that
+ADR-013 and O3 originally specified.
+
+**Why it changed.** The brief asks for filtering by **date & time** (F6); the design's `DATE`
+section shows only two date fields, so the range shipped date-only and F6 stayed the one
+requirement deliberately narrowed. Adding the time closes it. shadcn has no `date-picker` to
+install — the registry has `Calendar` and a documented *recipe*: a calendar in a popover, and
+a plain `<input type="time">` for the time half. So this is composition, not a new dependency.
+
+**Why the URL had to change.** A date-only bound could stay a wall-clock string because
+`matches` only ever compared `createdAt.slice(0, 10)` — "the whole UTC day" was a fine dodge
+when no time was in play. Once a bound names a time, that dodge becomes a wrong answer:
+`createdAt` is stored UTC, a picker reads local, and a floating `2026-07-15T10:30` means a
+different moment in every timezone. The server can't resolve it either — it would apply *its*
+zone (UTC on Vercel), so a viewer at UTC+3 asking for "since 10:30" would silently get 13:30.
+
+So the conversion happens on the **client**, the only place the viewer's offset is known: the
+controls read and write local wall-clock, and commit `toISOString()`. The bound is then an
+instant, which means the same moment wherever the link is opened, and — because both sides are
+canonical UTC ISO — the comparison stays a plain string compare. Lexicographic order *is*
+chronological order; nothing has to parse a date per row.
+
+The cost is a URL that no longer reads as a date. O3 valued that readability, and it's real:
+`?from=2026-07-14T21:00:00.000Z` is not a date a human recognizes, and a shared link now pins a
+moment rather than a wall-clock reading. Both are the honest price of a bound that means one
+thing. Correctness over legibility, once the two stopped being compatible.
+
+**Compatibility.** A bare `YYYY-MM-DD` is still accepted and still means the whole UTC day —
+first instant at `from`, last at `to` — so links shared under the old contract keep working,
+and picking a day without touching the time still covers all of it. That expansion lives in
+`getMessages`, **not** in `feedQuerySchema`: the schema only guards the API route, while
+`app/feed/page.tsx` renders the first page by calling `getMessages` directly. A transform on
+the schema would leave the two entry points disagreeing about what `?to=2026-07-14` means —
+and the page is also why an unparseable bound has to read as *unset* rather than throw, since
+nothing validates a hand-typed one before it reaches the rail.
+
+**The URL is a coarse store; a time input is a fine-grained control.** Every filter write is a
+URL write, and a URL write re-renders the page on the server, waits out the mock latency
+(~1.2s), and remounts `FeedClient` — which is keyed on the filter set — resetting the query
+cache and the virtualizer. That cadence suits a chip or a dropdown: one intent, one commit.
+
+A `type="time"` input does not fit it. It fires on **every segment**, so committing per event
+spends three round-trips on one `13:30:45`, rebuilds the feed under each, and — because the
+input is controlled off the URL — snaps the value back under the caret between them, since the
+URL is still the old one while a write is in flight. Measured before the fix: three
+navigations for one edit; after: one.
+
+So each control commits once it has a whole intent to report: the date on pick, the time on
+**blur**. Blur rather than a debounce timer — a settle delay is a guess at when the user is
+done, while focus leaving is them saying so, and it costs no timer to cancel or clean up. In
+between, the time input holds a **draft**; a blur that changed nothing commits nothing. The
+draft is dropped during render when the URL catches up — not from an effect, which would cost a
+second pass to re-sync. Same shape as the tag chips' optimistic mirror (feed-filter-bar.tsx):
+the URL stays the source of truth, and local state only covers the window where it lags.
+
+This is per-control batching, and it stops at the control. Walking tag → user → date still
+spends a navigation each; collapsing *those* into one is an `Apply` button, which is a filter-bar
+decision rather than a picker one — noted as a suggestion in the README.
+
+**Consequences.** `react-day-picker` (+ `date-fns`) is now actually mounted, and actually
+behind a popover — which retires the caveat in ADR-009 and makes the `next/dynamic` split the
+README suggests a real, load-bearing option (Q2) rather than a hypothetical one.
 
 ---
 
@@ -562,11 +631,14 @@ win, with `use cache` + a tag revalidated on POST.
   interactivity — the feed *shell* does not, and the difference compounds.
 - Know what the client bundle actually costs. The three deliberate additions are TanStack
   Query (~13kb gzipped, justified in ADR-006), `@tanstack/react-virtual` (small, and it
-  *reduces* DOM cost), and `react-day-picker` behind the shadcn Calendar — by far the heaviest,
-  and the one most likely not to earn its weight (ADR-009).
-- `react-day-picker` is the prime `next/dynamic` candidate: the date filter is collapsed behind
-  a popover on desktop and a `⚙` drawer on mobile, so it should never be in the critical path
-  of first paint.
+  *reduces* DOM cost), and `react-day-picker` behind the shadcn Calendar — by far the heaviest.
+  It earns its weight now that it carries the date+time range (F6, ADR-014); before that it was
+  the addition most likely not to.
+- `react-day-picker` is the prime `next/dynamic` candidate, and the reason is structural rather
+  than hopeful: the calendar only mounts when the popover opens — behind the rail on desktop,
+  behind the `⚙` panel on mobile — so it is never in the critical path of first paint, and
+  lazy-loading it costs nothing a user can perceive (a popover already reads as a moment where
+  a beat of delay is normal, and it reserves no layout to shift).
 - Watch it, don't guess: `@next/bundle-analyzer` in CI, with a size budget that fails the
   build on regression. "Keep the bundle small" is a process, not a one-time cleanup.
 
