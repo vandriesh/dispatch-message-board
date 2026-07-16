@@ -1,11 +1,11 @@
 "use client"
 
 import * as React from "react"
+import { Suspense } from "react"
 import { format } from "date-fns"
 import { ChevronDownIcon } from "lucide-react"
 
 import {
-  Calendar,
   Field,
   FieldGroup,
   FieldLabel,
@@ -16,6 +16,28 @@ import {
   cn,
   inputVariants,
 } from "@dmb/ui-kit"
+
+/**
+ * The calendar, split into its own chunk and fetched on first open.
+ *
+ * `react-day-picker` + the slice of `date-fns` it drags in are the heaviest thing
+ * the app ships — bigger than TanStack Query — and every visitor to /feed paid for
+ * them, on both breakpoints, whether or not they ever filtered by date. The
+ * popover already deferred *mounting* it; what it could not defer was the
+ * *download*, because a static `import` is resolved at build regardless of whether
+ * the component ever renders. `lazy` is what turns that into a real split.
+ *
+ * Imported from the module rather than the `@dmb/ui-kit` barrel on purpose: going
+ * through the barrel would pull the whole kit into this chunk and undo the split.
+ *
+ * `React.lazy`, not `next/dynamic`: this package stays framework-agnostic (only
+ * `use-filter-query` and `feed-filter-bar` are allowed to know about `next/*`),
+ * and there is nothing here `next/dynamic` would add — the calendar is
+ * client-only by nature, mounting on a user gesture.
+ */
+const Calendar = React.lazy(() =>
+  import("@dmb/ui-kit/components/calendar").then((m) => ({ default: m.Calendar }))
+)
 
 /**
  * What an untouched time means at each end of the range. Picking only a day still
@@ -78,8 +100,8 @@ export function parseBound(
  * would be nothing to commit.
  *
  * The calendar is the one thing here that costs real bytes (`react-day-picker` +
- * `date-fns`, the heaviest dep in the app) — and now that it sits behind a
- * popover, it's the `next/dynamic` candidate the README suggests.
+ * `date-fns`, the heaviest dep in the app), so it is code-split and fetched on
+ * first open — see the `lazy` call above.
  */
 export function DateTimeField({
   label,
@@ -159,17 +181,30 @@ export function DateTimeField({
             <ChevronDownIcon className="size-4 shrink-0" />
           </PopoverTrigger>
           <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={selected}
-              defaultMonth={selected}
-              captionLayout="dropdown"
-              disabled={disabledDays}
-              onSelect={(day) => {
-                commit(day, time)
-                setOpen(false)
-              }}
-            />
+            {/* The fallback holds the calendar's own footprint, so the popover
+                opens at its final size instead of snapping when the chunk lands.
+                Only the first open ever waits; after that it's cached. */}
+            <Suspense
+              fallback={
+                <div
+                  aria-busy
+                  aria-label="Loading calendar"
+                  className="h-[298px] w-[251px]"
+                />
+              }
+            >
+              <Calendar
+                mode="single"
+                selected={selected}
+                defaultMonth={selected}
+                captionLayout="dropdown"
+                disabled={disabledDays}
+                onSelect={(day) => {
+                  commit(day, time)
+                  setOpen(false)
+                }}
+              />
+            </Suspense>
           </PopoverContent>
         </Popover>
       </Field>
