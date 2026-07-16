@@ -17,6 +17,10 @@
 :root {
   --ink: #111111;
   --page: #e4e4de;
+  /* The light band of the empty state's 45° hatch — the page gray is the dark
+   * one. Measured, like the rest (ADR-007); it isn't `--page` lightened by any
+   * round amount. */
+  --hatch: #edede7;
   --surface: #ffffff;
   --accent: #ffe600;
 
@@ -89,6 +93,23 @@
   --radius-2xl: 0rem;
   --radius-3xl: 0rem;
   --radius-4xl: 0rem;
+}
+
+/* The empty state's 45° hatch (F11) — the "nothing here" fill, so a gap reads as
+ * a placeholder surface rather than a card that failed to load.
+ *
+ * A named utility rather than an arbitrary value in the JSX, for two reasons: the
+ * measured colors stay in the token layer with the rest (ADR-007), and `--hatch`
+ * is *referenced from within this file*. A custom property whose only reader is a
+ * class name in a `.tsx` is pruned as unused before that utility is emitted —
+ * which silently drops the declaration, leaving `var(--hatch)` undefined and the
+ * whole `background-image` invalid. */
+@utility bg-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--hatch) 0 10px,
+    var(--page) 10px 20px
+  );
 }
 
 @layer base {
